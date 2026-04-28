@@ -1,5 +1,9 @@
-import { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, Camera, ArrowLeftRight, Volume2, WifiOff, X, ImageIcon, RotateCcw, Trash2, GraduationCap, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Mic, MicOff, Camera, ArrowLeftRight, Volume2, WifiOff, X,
+  ImageIcon, RotateCcw, Trash2, GraduationCap, ChevronDown,
+  ChevronUp, Video, VideoOff, Captions, CaptionsOff, MessageCircle
+} from "lucide-react";
 
 const LANGS = [
   { code: "id", name: "Indonesia", flag: "🇮🇩", speech: "id-ID" },
@@ -33,8 +37,12 @@ const css = `
 body{background:#030712}
 .app{font-family:'Noto Sans',sans-serif;background:#030712;color:#f1f5f9;min-height:100vh;display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:relative}
 select{background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:10px;padding:8px 12px;font-size:13px;outline:none;cursor:pointer;font-family:inherit}
+select:hover{border-color:#475569}
+textarea{background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:12px;padding:12px;font-size:14px;outline:none;font-family:inherit;resize:none;width:100%;line-height:1.6}
+textarea:focus{border-color:#0891b2}
+textarea::placeholder{color:#475569}
+button{cursor:pointer;font-family:inherit}
 
-/* header */
 .header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #1e293b}
 .logo{display:flex;align-items:center;gap:8px}
 .logo-icon{width:32px;height:32px;background:#0891b2;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff}
@@ -44,16 +52,17 @@ select{background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:1
 .badge.off{background:#450a0a;color:#f87171;border:1px solid #991b1b}
 .dot{display:inline-block;width:7px;height:7px;background:#4ade80;border-radius:50%}
 
-/* lang bars */
+.tabs{display:flex;border-bottom:1px solid #1e293b}
+.tab{flex:1;padding:10px 4px;font-size:12px;font-weight:500;border:none;background:none;color:#64748b;display:flex;align-items:center;justify-content:center;gap:5px;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:#22d3ee;border-bottom-color:#22d3ee}
+.tab:hover:not(.active){color:#94a3b8}
+
 .bar-a{background:#0f172a;border-bottom:1px solid #164e63;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;transform:rotate(180deg) scaleX(-1)}
 .bar-b{background:#0f172a;border-top:1px solid #78350f;padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
 .bar-lbl{font-size:11px;color:#64748b}
 
-/* feed */
-.feed{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:12px;min-height:260px;max-height:380px}
+.feed{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:12px;min-height:240px;max-height:340px}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:#334155;font-size:13px;text-align:center;gap:8px}
-
-/* bubbles */
 .bwrap{display:flex;flex-direction:column;gap:4px}
 .bwrap.A{align-items:flex-end}
 .bwrap.B{align-items:flex-start}
@@ -65,14 +74,13 @@ select{background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:1
 .bubble.B .b-orig{color:#fcd34d}
 .bdiv{border-top:1px solid #1e293b;margin:6px 0}
 .b-trans{font-size:13px;color:#cbd5e1;line-height:1.5}
-.learn-btn{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid;cursor:pointer;background:none;font-family:inherit;transition:all .2s;align-self:flex-start}
+.learn-btn{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid;background:none;font-family:inherit;transition:all .2s;align-self:flex-start}
 .bwrap.A .learn-btn{align-self:flex-end}
 .learn-btn.A{color:#22d3ee;border-color:#164e63}
 .learn-btn.A:hover,.learn-btn.A.open{background:#083344;border-color:#0891b2}
 .learn-btn.B{color:#fbbf24;border-color:#78350f}
 .learn-btn.B:hover,.learn-btn.B.open{background:#2d1a08;border-color:#d97706}
 
-/* learn panel inside bubble */
 .lpanel{background:#0f172a;border-radius:14px;padding:14px;border:1px solid #1e293b;max-width:82%;width:100%}
 .lp-title{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
 .speed-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
@@ -100,17 +108,12 @@ select{background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:1
 .heard{font-size:11px;color:#94a3b8;margin-top:6px}
 .heard span{color:#f1f5f9}
 
-/* loading */
 .tpill{display:flex;justify-content:center}
 .tpill div{background:#1e293b;border-radius:20px;padding:6px 16px;font-size:12px;color:#94a3b8;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-
-/* error */
 .err{margin:0 16px 8px;background:#450a0a;border:1px solid #7f1d1d;color:#fca5a5;font-size:12px;padding:8px 12px;border-radius:10px;display:flex;align-items:center;justify-content:space-between}
-
-/* actions bar */
 .actions{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #1e293b;background:#030712}
-.mic-btn{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 18px;border-radius:14px;border:2px solid;background:none;cursor:pointer;font-family:inherit;position:relative;transition:all .2s}
+.mic-btn{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 18px;border-radius:14px;border:2px solid;background:none;font-family:inherit;position:relative;transition:all .2s}
 .mic-btn:disabled{opacity:.4;cursor:not-allowed}
 .mic-btn.A{border-color:#164e63;color:#22d3ee;transform:rotate(180deg) scaleX(-1)}
 .mic-btn.A:hover:not(:disabled){border-color:#0891b2;background:#0c1a26}
@@ -121,12 +124,11 @@ select{background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:1
 .mic-lbl{font-size:10px;font-weight:600}
 .rdot{position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;animation:pulse 1s infinite}
 .cbtns{display:flex;flex-direction:column;gap:8px}
-.ibtn{width:40px;height:40px;border-radius:50%;background:#1e293b;border:1px solid #334155;display:flex;align-items:center;justify-content:center;color:#94a3b8;cursor:pointer;transition:all .2s}
+.ibtn{width:40px;height:40px;border-radius:50%;background:#1e293b;border:1px solid #334155;display:flex;align-items:center;justify-content:center;color:#94a3b8;transition:all .2s}
 .ibtn:hover{background:#334155;color:#f1f5f9}
-.clrbtn{background:none;border:none;color:#334155;cursor:pointer;display:flex;align-items:center}
+.clrbtn{background:none;border:none;color:#334155;display:flex;align-items:center}
 .clrbtn:hover{color:#64748b}
 
-/* photo overlay */
 .pov{position:absolute;bottom:0;left:0;right:0;background:#0f172a;border-top:1px solid #334155;border-radius:20px 20px 0 0;padding:20px 16px;z-index:50;max-height:80vh;overflow-y:auto}
 .pov-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .pov-hdr h3{font-size:16px;font-weight:600}
@@ -144,13 +146,47 @@ select{background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:1
 .spkbtn:hover{color:#94a3b8}
 .rstbtn{display:flex;align-items:center;gap:4px;font-size:11px;color:#475569;background:none;border:none;cursor:pointer;margin-top:8px;font-family:inherit}
 .proc{text-align:center;font-size:12px;color:#64748b;padding:16px;animation:pulse 1.5s infinite}
+
+/* ── VIDEO TAB ── */
+.vbody{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.vcontrols{padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #1e293b;flex-wrap:wrap}
+.vcontrols span{font-size:12px;color:#64748b;white-space:nowrap}
+.vcam-wrap{position:relative;width:100%;background:#000;flex-shrink:0}
+.vcam-wrap video{width:100%;max-height:52vw;object-fit:cover;display:block}
+.vcam-placeholder{width:100%;height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#334155;gap:10px;font-size:13px}
+
+/* subtitle overlay on video */
+.sub-overlay{position:absolute;bottom:0;left:0;right:0;padding:12px 14px 14px;background:linear-gradient(transparent, rgba(0,0,0,0.85));pointer-events:none;min-height:60px;display:flex;flex-direction:column;justify-content:flex-end;gap:4px}
+.sub-interim{font-size:14px;color:rgba(255,255,255,0.6);font-style:italic;line-height:1.4;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.sub-original{font-size:13px;color:rgba(200,230,255,0.85);line-height:1.4;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.sub-translated{font-size:17px;font-weight:700;color:#fff;line-height:1.4;text-shadow:0 2px 6px rgba(0,0,0,.9),0 0 20px rgba(34,211,238,.4)}
+.sub-lang-badge{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:3px 8px;font-size:10px;font-weight:600;color:#22d3ee;pointer-events:none}
+.sub-rec-badge{position:absolute;top:10px;right:10px;display:flex;align-items:center;gap:5px;background:rgba(220,38,38,.8);border-radius:12px;padding:3px 8px;font-size:10px;font-weight:700;color:#fff}
+
+/* subtitle history box below video */
+.sub-history{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px;min-height:120px;max-height:200px}
+.sub-history-empty{display:flex;align-items:center;justify-content:center;height:80px;color:#334155;font-size:12px;text-align:center}
+.sub-item{background:#0f172a;border-radius:10px;padding:10px 12px;border-left:3px solid #0891b2}
+.sub-item-orig{font-size:12px;color:#94a3b8;margin-bottom:4px;line-height:1.4}
+.sub-item-lang{font-size:10px;color:#0891b2;margin-bottom:2px;font-weight:600}
+.sub-item-trans{font-size:14px;color:#f1f5f9;font-weight:500;line-height:1.4}
+
+/* video bottom controls */
+.vbottom{padding:12px 16px;border-top:1px solid #1e293b;display:flex;align-items:center;gap:10px;background:#030712}
+.vstart-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:14px;font-size:14px;font-weight:700;border:2px solid;font-family:inherit;transition:all .2s}
+.vstart-btn.idle{background:#0f172a;border-color:#164e63;color:#22d3ee}
+.vstart-btn.idle:hover{background:#083344;border-color:#0891b2}
+.vstart-btn.live{background:#0e7490;border-color:#22d3ee;color:#fff;animation:pulse 2s infinite}
+.vstart-btn.live:hover{animation:none;background:#0891b2}
+.vtarget{display:flex;flex-direction:column;gap:4px}
+.vtarget span{font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
 `;
 
 function leven(a,b){const m=a.length,n=b.length,dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
 function simScore(t,h){const a=t.toLowerCase().replace(/[^\w\s\u3000-\u9FFF\uAC00-\uD7AF\u0400-\u04FF\u0600-\u06FF]/g,"").trim(),b=h.toLowerCase().replace(/[^\w\s\u3000-\u9FFF\uAC00-\uD7AF\u0400-\u04FF\u0600-\u06FF]/g,"").trim();if(!a||!b)return 0;return Math.max(0,Math.round((1-leven(a,b)/Math.max(a.length,b.length))*100));}
 
-// Per-bubble learn panel
-function LearnPanel({ text, langCode, langName, speechCode, flag }) {
+// ── Learn Panel (per bubble) ──
+function LearnPanel({ text, langName, speechCode, flag }) {
   const [speed, setSpeed] = useState(0.8);
   const [playing, setPlaying] = useState(false);
   const [phonetic, setPhonetic] = useState("");
@@ -169,7 +205,7 @@ function LearnPanel({ text, langCode, langName, speechCode, flag }) {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:500,
           messages:[{ role:"user", content:
-            `Buat panduan pengucapan untuk teks ${langName} berikut: "${text}"\n\nFormat:\n1. IPA: [tulis IPA di sini]\n2. Baca seperti: [suku kata pakai bunyi Indonesia, contoh: "heh-LO"]\n3. Tips: [satu tips singkat untuk penutur Indonesia]\n\nGunakan teks biasa saja.`
+            `Buat panduan pengucapan untuk teks ${langName} berikut: "${text}"\n\nFormat:\n1. IPA: [tulis IPA]\n2. Baca seperti: [suku kata pakai bunyi Indonesia]\n3. Tips: [satu tips singkat untuk penutur Indonesia]\n\nGunakan teks biasa saja.`
           }]
         })
       });
@@ -193,14 +229,10 @@ function LearnPanel({ text, langCode, langName, speechCode, flag }) {
   const startPrac = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert("Gunakan Chrome/Edge."); return; }
-    const r = new SR();
-    pracRef.current = r;
+    const r = new SR(); pracRef.current = r;
     r.lang = speechCode; r.interimResults = false;
     setPracRec(true); setScore(null);
-    r.onresult = e => {
-      const h = e.results[0][0].transcript;
-      setHeard(h); setScore(simScore(text, h)); setPracRec(false);
-    };
+    r.onresult = e => { const h=e.results[0][0].transcript; setHeard(h); setScore(simScore(text,h)); setPracRec(false); };
     r.onend = ()=>setPracRec(false);
     r.onerror = ()=>setPracRec(false);
     r.start();
@@ -212,57 +244,197 @@ function LearnPanel({ text, langCode, langName, speechCode, flag }) {
   return (
     <div className="lpanel">
       <div className="lp-title">📖 Pelajari Pengucapan {flag}</div>
-
       <div className="speed-row">
         <span>Kecepatan:</span>
-        <input type="range" min="0.3" max="1.2" step="0.1" value={speed}
-          onChange={e=>setSpeed(parseFloat(e.target.value))}
-          style={{flex:1,accentColor:"#22d3ee"}} />
-        <span style={{color:"#22d3ee",minWidth:52}}>
-          {speed<=0.5?"🐢 Pelan":speed>=1.1?"⚡ Cepat":"▶ Normal"}
-        </span>
+        <input type="range" min="0.3" max="1.2" step="0.1" value={speed} onChange={e=>setSpeed(parseFloat(e.target.value))} style={{flex:1,accentColor:"#22d3ee"}}/>
+        <span style={{color:"#22d3ee",minWidth:52}}>{speed<=0.5?"🐢 Pelan":speed>=1.1?"⚡ Cepat":"▶ Normal"}</span>
       </div>
-
-      <button className={`play-btn ${playing?"going":""}`} onClick={playAudio}>
-        <Volume2 size={15}/> {playing?"Sedang diputar...":"Dengarkan Pengucapan"}
-      </button>
-
+      <button className={`play-btn ${playing?"going":""}`} onClick={playAudio}><Volume2 size={15}/>{playing?"Sedang diputar...":"Dengarkan Pengucapan"}</button>
       <div className="phonetic-box">
         <div className="ph-lbl">PANDUAN PENGUCAPAN AI</div>
-        {phLoad
-          ? <div className="ph-load">Menganalisis...</div>
-          : <div className="ph-text">{phonetic}</div>
-        }
+        {phLoad?<div className="ph-load">Menganalisis...</div>:<div className="ph-text">{phonetic}</div>}
       </div>
-
-      <button
-        className={`prac-btn ${pracRec?"going":""}`}
-        onClick={pracRec?()=>{pracRef.current?.stop();setPracRec(false);}:startPrac}
-      >
+      <button className={`prac-btn ${pracRec?"going":""}`} onClick={pracRec?()=>{pracRef.current?.stop();setPracRec(false);}:startPrac}>
         {pracRec?<><MicOff size={16}/>Berhenti Merekam...</>:<><Mic size={16}/>Coba Ucapkan Sekarang</>}
       </button>
-
       {score!==null&&(
         <div className="score-box">
-          <div className="score-row">
-            <span className="score-lbl">Skor Kemiripan</span>
-            <span className="score-num" style={{color:sc(score)}}>{score}%</span>
-          </div>
-          <div className="score-bar">
-            <div className="score-fill" style={{width:`${score}%`,background:sc(score)}}/>
-          </div>
+          <div className="score-row"><span className="score-lbl">Skor Kemiripan</span><span className="score-num" style={{color:sc(score)}}>{score}%</span></div>
+          <div className="score-bar"><div className="score-fill" style={{width:`${score}%`,background:sc(score)}}/></div>
           <span className={`fb ${fb(score).c}`}>{fb(score).l}</span>
           {heard&&<div className="heard">Yang terdengar: <span>"{heard}"</span></div>}
-          <button className="spkbtn" style={{marginTop:8}} onClick={playAudio}>
-            <Volume2 size={12}/> Dengarkan lagi
-          </button>
+          <button className="spkbtn" style={{marginTop:8}} onClick={playAudio}><Volume2 size={12}/>Dengarkan lagi</button>
         </div>
       )}
     </div>
   );
 }
 
+// ── Video Translation Tab ──
+function VideoTab() {
+  const [targetLang, setTargetLang] = useState(LANGS[0]); // default: Indonesia
+  const [isLive, setIsLive] = useState(false);
+  const [interim, setInterim] = useState("");
+  const [lastOrig, setLastOrig] = useState("");
+  const [lastTrans, setLastTrans] = useState("");
+  const [detectedLang, setDetectedLang] = useState("");
+  const [history, setHistory] = useState([]);
+  const [camErr, setCamErr] = useState("");
+  const [translating, setTranslating] = useState(false);
+
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const srRef = useRef(null);
+  const histEnd = useRef(null);
+
+  useEffect(()=>{ histEnd.current?.scrollIntoView({behavior:"smooth"}); },[history]);
+  useEffect(()=>()=>stopAll(),[]);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:"environment" }, audio: false });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
+      setCamErr("");
+    } catch(e) {
+      setCamErr("Izin kamera ditolak atau tidak tersedia.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t=>t.stop()); streamRef.current=null; }
+    if (videoRef.current) videoRef.current.srcObject = null;
+  };
+
+  const startSpeech = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { setCamErr("Gunakan Chrome/Edge untuk fitur ini."); return; }
+    const r = new SR();
+    srRef.current = r;
+    r.continuous = true;
+    r.interimResults = true;
+    r.lang = ""; // empty = browser tries auto-detect
+
+    r.onresult = async (e) => {
+      let interimText = "", finalText = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+        else interimText += e.results[i][0].transcript;
+      }
+      if (interimText) setInterim(interimText);
+      if (finalText.trim()) {
+        setInterim("");
+        setLastOrig(finalText.trim());
+        setTranslating(true);
+        try {
+          const res = await fetch("https://api.anthropic.com/v1/messages", {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:300,
+              messages:[{ role:"user", content:
+                `Teks ini hasil speech-to-text otomatis: "${finalText.trim()}"\n\nTugasmu:\n1. Deteksi bahasa aslinya (nama bahasa dalam bahasa Indonesia)\n2. Terjemahkan ke ${targetLang.name}\n\nBalas HANYA JSON valid tanpa markdown: {"lang":"nama bahasa","translated":"terjemahan"}`
+              }]
+            })
+          });
+          const d = await res.json();
+          const txt = d.content.map(b=>b.text||"").join("").replace(/```json|```/g,"").trim();
+          const parsed = JSON.parse(txt);
+          setDetectedLang(parsed.lang || "");
+          setLastTrans(parsed.translated || "");
+          setHistory(p=>[...p,{ id:Date.now(), orig:finalText.trim(), lang:parsed.lang, trans:parsed.translated }]);
+        } catch { setLastTrans("[Gagal menerjemahkan]"); }
+        finally { setTranslating(false); }
+      }
+    };
+
+    r.onerror = e => { if(e.error==="not-allowed") setCamErr("Izin mikrofon ditolak."); };
+    r.onend = () => { if (isLive && srRef.current) { try{ srRef.current.start(); }catch{} } };
+    try { r.start(); } catch {}
+  };
+
+  const stopSpeech = () => { try{ srRef.current?.stop(); }catch{} srRef.current=null; };
+
+  const stopAll = () => { stopCamera(); stopSpeech(); };
+
+  const toggle = async () => {
+    if (isLive) {
+      setIsLive(false);
+      stopAll();
+      setInterim(""); setLastOrig(""); setLastTrans(""); setDetectedLang("");
+    } else {
+      setIsLive(true);
+      await startCamera();
+      startSpeech();
+    }
+  };
+
+  return (
+    <div className="vbody">
+      {/* Controls row */}
+      <div className="vcontrols">
+        <span>Subtitle ke:</span>
+        <select value={targetLang.code} onChange={e=>setTargetLang(LANGS.find(l=>l.code===e.target.value))} style={{flex:1}}>
+          {LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
+        </select>
+        {history.length>0&&<button className="clrbtn" onClick={()=>{setHistory([]);setLastOrig("");setLastTrans("");setDetectedLang("");}}><Trash2 size={14}/></button>}
+      </div>
+
+      {camErr&&<div className="err" style={{margin:"8px 12px"}}><span>{camErr}</span><X size={13} onClick={()=>setCamErr("")}/></div>}
+
+      {/* Camera + overlay */}
+      <div className="vcam-wrap">
+        {isLive
+          ? <video ref={videoRef} muted playsInline autoPlay style={{width:"100%",maxHeight:"52vw",minHeight:180,objectFit:"cover",display:"block"}}/>
+          : <div className="vcam-placeholder">
+              <Video size={40} style={{opacity:.25}}/>
+              <p>Tekan <strong style={{color:"#22d3ee"}}>Mulai</strong> untuk buka kamera</p>
+              <p style={{fontSize:11,opacity:.6}}>Arahkan ke orang yang sedang bicara</p>
+            </div>
+        }
+
+        {isLive && (
+          <>
+            {detectedLang && <div className="sub-lang-badge">🌐 {detectedLang}</div>}
+            <div className="sub-rec-badge"><span style={{width:7,height:7,background:"#fff",borderRadius:"50%",display:"inline-block",animation:"pulse 1s infinite"}}/>REC</div>
+            <div className="sub-overlay">
+              {interim && <div className="sub-interim">{interim}...</div>}
+              {lastOrig && <div className="sub-original">〔{lastOrig}〕</div>}
+              {translating
+                ? <div className="sub-translated" style={{opacity:.6,animation:"pulse 1s infinite"}}>Menerjemahkan...</div>
+                : lastTrans && <div className="sub-translated">{targetLang.flag} {lastTrans}</div>
+              }
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* History subtitle box */}
+      <div className="sub-history">
+        {!history.length
+          ? <div className="sub-history-empty">Riwayat subtitle akan muncul di sini</div>
+          : history.map(h=>(
+              <div key={h.id} className="sub-item">
+                <div className="sub-item-lang">🌐 {h.lang || "?"}</div>
+                <div className="sub-item-orig">{h.orig}</div>
+                <div className="sub-item-trans">{targetLang.flag} {h.trans}</div>
+              </div>
+            ))
+        }
+        <div ref={histEnd}/>
+      </div>
+
+      {/* Start/Stop button */}
+      <div className="vbottom">
+        <button className={`vstart-btn ${isLive?"live":"idle"}`} onClick={toggle}>
+          {isLive?<><VideoOff size={18}/>Hentikan Terjemahan</>:<><Video size={18}/>Mulai Terjemahan Video</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main App ──
 export default function App() {
+  const [tab, setTab] = useState("talk");
   const [langA, setLangA] = useState(LANGS[0]);
   const [langB, setLangB] = useState(LANGS[1]);
   const [messages, setMessages] = useState([]);
@@ -275,82 +447,42 @@ export default function App() {
   const [photoResult, setPhotoResult] = useState(null);
   const [photoProc, setPhotoProc] = useState(false);
   const [error, setError] = useState("");
-  const [openLearn, setOpenLearn] = useState(null); // message id
+  const [openLearn, setOpenLearn] = useState(null);
   const recRef = useRef(null);
   const fileRef = useRef(null);
   const feedEnd = useRef(null);
 
   useEffect(()=>{
     const on=()=>setIsOnline(true),off=()=>setIsOnline(false);
-    window.addEventListener("online",on);window.addEventListener("offline",off);
-    return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};
+    window.addEventListener("online",on); window.addEventListener("offline",off);
+    return()=>{ window.removeEventListener("online",on); window.removeEventListener("offline",off); };
   },[]);
-  useEffect(()=>{feedEnd.current?.scrollIntoView({behavior:"smooth"});},[messages,translating,openLearn]);
+  useEffect(()=>{ feedEnd.current?.scrollIntoView({behavior:"smooth"}); },[messages,translating,openLearn]);
 
   const showErr=m=>{setError(m);setTimeout(()=>setError(""),4000);};
-  const doTrans=async(text,from,to)=>{
-    const r=await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`);
-    const d=await r.json();
-    if(d.responseStatus===200)return d.responseData.translatedText;
-    throw new Error();
-  };
-  const speak=(text,sc,rate=1)=>{
-    if(!window.speechSynthesis)return;
-    window.speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(text);
-    u.lang=sc;u.rate=rate;
-    window.speechSynthesis.speak(u);
-  };
+  const doTrans=async(text,from,to)=>{ const r=await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`); const d=await r.json(); if(d.responseStatus===200)return d.responseData.translatedText; throw new Error(); };
+  const speak=(text,sc,rate=1)=>{ if(!window.speechSynthesis)return; window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang=sc; u.rate=rate; window.speechSynthesis.speak(u); };
 
   const startListen=side=>{
     if(!isOnline){showErr("Perlu internet untuk menerjemahkan.");return;}
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){showErr("Gunakan Chrome/Edge untuk fitur mikrofon.");return;}
+    if(!SR){showErr("Gunakan Chrome/Edge.");return;}
     if(listening){recRef.current?.stop();return;}
     const src=side==="A"?langA:langB, tgt=side==="A"?langB:langA;
-    const r=new SR(); recRef.current=r;
-    r.lang=src.speech; r.interimResults=false;
-    setListening(side);
-    r.onresult=async e=>{
-      const orig=e.results[0][0].transcript;
-      setListening(null); setTranslating(true);
-      try{
-        const trans=await doTrans(orig,src.code,tgt.code);
-        const id=Date.now();
-        setMessages(p=>[...p,{id,side,orig,trans,src,tgt}]);
-        speak(trans,tgt.speech);
-      }catch{showErr("Terjemahan gagal. Periksa koneksi.");}
-      finally{setTranslating(false);}
-    };
+    const r=new SR(); recRef.current=r; r.lang=src.speech; r.interimResults=false; setListening(side);
+    r.onresult=async e=>{ const orig=e.results[0][0].transcript; setListening(null); setTranslating(true);
+      try{ const trans=await doTrans(orig,src.code,tgt.code); setMessages(p=>[...p,{id:Date.now(),side,orig,trans,src,tgt}]); speak(trans,tgt.speech); }
+      catch{ showErr("Terjemahan gagal."); } finally{ setTranslating(false); } };
     r.onend=()=>setListening(null);
-    r.onerror=ev=>{setListening(null);showErr(ev.error==="not-allowed"?"Izin mikrofon ditolak.":"Gagal tangkap suara.");};
+    r.onerror=ev=>{setListening(null); showErr(ev.error==="not-allowed"?"Izin mikrofon ditolak.":"Gagal tangkap suara.");};
     r.start();
   };
 
-  const handlePhoto=e=>{
-    const file=e.target.files[0]; if(!file)return;
-    const reader=new FileReader();
-    reader.onload=async ev=>{
-      const url=ev.target.result;
-      setPhotoImg(url); setPhotoProc(true); setPhotoResult(null);
-      const b64=url.split(",")[1];
-      try{
-        const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,
-            messages:[{role:"user",content:[
-              {type:"image",source:{type:"base64",media_type:file.type,data:b64}},
-              {type:"text",text:`Extract all text from this image and translate to ${photoTgt.name}. Reply ONLY valid JSON no markdown: {"original":"...","translated":"..."}`}
-            ]}]
-          })
-        });
-        const data=await res.json();
-        const txt=data.content.map(b=>b.text||"").join("").replace(/```json|```/g,"").trim();
-        setPhotoResult(JSON.parse(txt));
-      }catch{setPhotoResult({original:"Tidak ada teks.",translated:"No text found."});}
-      finally{setPhotoProc(false);}
-    };
-    reader.readAsDataURL(file); e.target.value="";
-  };
+  const handlePhoto=e=>{ const file=e.target.files[0]; if(!file)return; const reader=new FileReader();
+    reader.onload=async ev=>{ const url=ev.target.result; setPhotoImg(url); setPhotoProc(true); setPhotoResult(null); const b64=url.split(",")[1];
+      try{ const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type,data:b64}},{type:"text",text:`Extract all text from this image and translate to ${photoTgt.name}. Reply ONLY valid JSON no markdown: {"original":"...","translated":"..."}`}]}]})}); const data=await res.json(); const txt=data.content.map(b=>b.text||"").join("").replace(/```json|```/g,"").trim(); setPhotoResult(JSON.parse(txt)); }
+      catch{ setPhotoResult({original:"Tidak ada teks.",translated:"No text found."}); } finally{ setPhotoProc(false); } };
+    reader.readAsDataURL(file); e.target.value=""; };
 
   const toggleLearn=id=>setOpenLearn(p=>p===id?null:id);
   const swapLangs=()=>{const t=langA;setLangA(langB);setLangB(t);};
@@ -359,144 +491,84 @@ export default function App() {
     <>
       <style>{css}</style>
       <div className="app">
-
-        {/* Header */}
         <div className="header">
           <div className="logo">
             <div className="logo-icon">L</div>
             <span className="logo-name">LinguaT1</span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            {messages.length>0&&<button className="clrbtn" onClick={()=>{setMessages([]);setOpenLearn(null);}}><Trash2 size={15}/></button>}
-            <div className={`badge ${isOnline?"on":"off"}`}>
-              {isOnline?<><span className="dot"/>Online</>:<><WifiOff size={10}/>Offline</>}
-            </div>
+            {tab==="talk"&&messages.length>0&&<button className="clrbtn" onClick={()=>{setMessages([]);setOpenLearn(null);}}><Trash2 size={15}/></button>}
+            <div className={`badge ${isOnline?"on":"off"}`}>{isOnline?<><span className="dot"/>Online</>:<><WifiOff size={10}/>Offline</>}</div>
           </div>
         </div>
 
-        {/* Lang bar A (upside-down = other person) */}
-        <div className="bar-a">
-          <select value={langA.code} onChange={e=>setLangA(LANGS.find(l=>l.code===e.target.value))}>
-            {LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
-          </select>
-          <span className="bar-lbl">← Orang lain</span>
+        <div className="tabs">
+          <button className={`tab ${tab==="talk"?"active":""}`} onClick={()=>setTab("talk")}><MessageCircle size={14}/>Percakapan</button>
+          <button className={`tab ${tab==="video"?"active":""}`} onClick={()=>setTab("video")}><Video size={14}/>Video Subtitle</button>
         </div>
 
-        {/* Feed */}
-        <div className="feed">
-          {!messages.length&&!translating&&(
-            <div className="empty">
-              <Volume2 size={28} style={{opacity:.3}}/>
-              <p>Tekan mikrofon untuk mulai bicara</p>
-              <p style={{fontSize:11,opacity:.6}}>Setelah terjemahan muncul, tap<br/><strong style={{color:"#22d3ee"}}>Pelajari Ucapan</strong> untuk belajar cara baca yang benar</p>
-            </div>
-          )}
-
-          {messages.map(m=>(
-            <div key={m.id} className={`bwrap ${m.side}`}>
-              {/* Bubble */}
-              <div className={`bubble ${m.side}`}>
-                <div className="b-orig">{m.src.flag} {m.orig}</div>
-                <div className="bdiv"/>
-                <div className="b-trans">{m.tgt.flag} {m.trans}</div>
-              </div>
-
-              {/* Pelajari Ucapan button */}
-              <button
-                className={`learn-btn ${m.side} ${openLearn===m.id?"open":""}`}
-                onClick={()=>toggleLearn(m.id)}
-              >
-                <GraduationCap size={12}/>
-                Pelajari Ucapan {m.tgt.flag}
-                {openLearn===m.id?<ChevronUp size={11}/>:<ChevronDown size={11}/>}
-              </button>
-
-              {/* Learn panel */}
-              {openLearn===m.id&&(
-                <LearnPanel
-                  text={m.trans}
-                  langCode={m.tgt.code}
-                  langName={m.tgt.name}
-                  speechCode={m.tgt.speech}
-                  flag={m.tgt.flag}
-                />
-              )}
-            </div>
-          ))}
-
-          {translating&&<div className="tpill"><div>Menerjemahkan...</div></div>}
-          <div ref={feedEnd}/>
-        </div>
-
-        {error&&<div className="err"><span>{error}</span><X size={13} style={{cursor:"pointer"}} onClick={()=>setError("")}/></div>}
-
-        {/* Lang bar B */}
-        <div className="bar-b">
-          <select value={langB.code} onChange={e=>setLangB(LANGS.find(l=>l.code===e.target.value))}>
-            {LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
-          </select>
-          <span className="bar-lbl">Kamu →</span>
-        </div>
-
-        {/* Actions */}
-        <div className="actions">
-          <button className={`mic-btn A ${listening==="A"?"rec":""}`}
-            onClick={()=>startListen("A")} disabled={translating||(listening&&listening!=="A")}>
-            {listening==="A"?<MicOff size={22}/>:<Mic size={22}/>}
-            <span className="mic-lbl">{listening==="A"?"Berhenti":langA.name}</span>
-            {listening==="A"&&<span className="rdot"/>}
-          </button>
-
-          <div className="cbtns">
-            <button className="ibtn" onClick={swapLangs} title="Tukar bahasa"><ArrowLeftRight size={15}/></button>
-            <button className="ibtn" onClick={()=>{setShowPhoto(true);setPhotoImg(null);setPhotoResult(null);}} title="Terjemah foto"><Camera size={15}/></button>
+        {tab==="talk"&&<>
+          <div className="bar-a">
+            <select value={langA.code} onChange={e=>setLangA(LANGS.find(l=>l.code===e.target.value))}>{LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}</select>
+            <span className="bar-lbl">← Orang lain</span>
           </div>
-
-          <button className={`mic-btn B ${listening==="B"?"rec":""}`}
-            onClick={()=>startListen("B")} disabled={translating||(listening&&listening!=="B")}>
-            {listening==="B"?<MicOff size={22}/>:<Mic size={22}/>}
-            <span className="mic-lbl">{listening==="B"?"Stop":langB.name}</span>
-            {listening==="B"&&<span className="rdot"/>}
-          </button>
-        </div>
-
-        {/* Photo overlay */}
-        {showPhoto&&(
-          <div className="pov">
-            <div className="pov-hdr">
-              <h3>📷 Terjemah Foto</h3>
-              <button className="ibtn" onClick={()=>setShowPhoto(false)}><X size={16}/></button>
-            </div>
-            <div className="lrow">
-              <span>Terjemahkan ke:</span>
-              <select value={photoTgt.code} onChange={e=>setPhotoTgt(LANGS.find(l=>l.code===e.target.value))} style={{flex:1}}>
-                {LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
-              </select>
-            </div>
-            {!photoImg
-              ?<div className="upz" onClick={()=>fileRef.current?.click()}>
-                  <ImageIcon size={28}/><span style={{fontSize:14}}>Tap untuk pilih gambar</span>
-                  <span style={{fontSize:11}}>Menu, papan nama, dokumen, dll.</span>
+          <div className="feed">
+            {!messages.length&&!translating&&<div className="empty"><Volume2 size={28} style={{opacity:.3}}/><p>Tekan mikrofon untuk mulai bicara</p><p style={{fontSize:11,opacity:.6}}>Setelah terjemahan muncul, tap <strong style={{color:"#22d3ee"}}>Pelajari Ucapan</strong></p></div>}
+            {messages.map(m=>(
+              <div key={m.id} className={`bwrap ${m.side}`}>
+                <div className={`bubble ${m.side}`}>
+                  <div className="b-orig">{m.src.flag} {m.orig}</div>
+                  <div className="bdiv"/>
+                  <div className="b-trans">{m.tgt.flag} {m.trans}</div>
                 </div>
-              :<div>
-                <img src={photoImg} className="prev" alt="preview"/>
-                {photoProc&&<div className="proc">Membaca teks dengan AI...</div>}
-                {photoResult&&<div className="rbox">
-                  <div className="rlbl">Teks asli:</div>
-                  <div className="rorig">{photoResult.original}</div>
-                  <div className="rdivp">
-                    <div className="rlbl">Terjemahan ({photoTgt.flag} {photoTgt.name}):</div>
-                    <div className="rtrans">{photoResult.translated}</div>
-                  </div>
-                  <button className="spkbtn" onClick={()=>speak(photoResult.translated,photoTgt.speech)}><Volume2 size={12}/>Putar audio</button>
-                </div>}
-                <button className="rstbtn" onClick={()=>{setPhotoImg(null);setPhotoResult(null);}}><RotateCcw size={12}/>Pilih gambar lain</button>
+                <button className={`learn-btn ${m.side} ${openLearn===m.id?"open":""}`} onClick={()=>toggleLearn(m.id)}>
+                  <GraduationCap size={12}/>Pelajari Ucapan {m.tgt.flag}{openLearn===m.id?<ChevronUp size={11}/>:<ChevronDown size={11}/>}
+                </button>
+                {openLearn===m.id&&<LearnPanel text={m.trans} langName={m.tgt.name} speechCode={m.tgt.speech} flag={m.tgt.flag}/>}
               </div>
-            }
-            <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
+            ))}
+            {translating&&<div className="tpill"><div>Menerjemahkan...</div></div>}
+            <div ref={feedEnd}/>
           </div>
-        )}
+          {error&&<div className="err"><span>{error}</span><X size={13} style={{cursor:"pointer"}} onClick={()=>setError("")}/></div>}
+          <div className="bar-b">
+            <select value={langB.code} onChange={e=>setLangB(LANGS.find(l=>l.code===e.target.value))}>{LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}</select>
+            <span className="bar-lbl">Kamu →</span>
+          </div>
+          <div className="actions">
+            <button className={`mic-btn A ${listening==="A"?"rec":""}`} onClick={()=>startListen("A")} disabled={translating||(listening&&listening!=="A")}>
+              {listening==="A"?<MicOff size={22}/>:<Mic size={22}/>}<span className="mic-lbl">{listening==="A"?"Berhenti":langA.name}</span>{listening==="A"&&<span className="rdot"/>}
+            </button>
+            <div className="cbtns">
+              <button className="ibtn" onClick={swapLangs} title="Tukar bahasa"><ArrowLeftRight size={15}/></button>
+              <button className="ibtn" onClick={()=>{setShowPhoto(true);setPhotoImg(null);setPhotoResult(null);}} title="Terjemah foto"><Camera size={15}/></button>
+            </div>
+            <button className={`mic-btn B ${listening==="B"?"rec":""}`} onClick={()=>startListen("B")} disabled={translating||(listening&&listening!=="B")}>
+              {listening==="B"?<MicOff size={22}/>:<Mic size={22}/>}<span className="mic-lbl">{listening==="B"?"Stop":langB.name}</span>{listening==="B"&&<span className="rdot"/>}
+            </button>
+          </div>
+        </>}
 
+        {tab==="video"&&<VideoTab/>}
+
+        {showPhoto&&<div className="pov">
+          <div className="pov-hdr"><h3>📷 Terjemah Foto</h3><button className="ibtn" onClick={()=>setShowPhoto(false)}><X size={16}/></button></div>
+          <div className="lrow"><span>Terjemahkan ke:</span><select value={photoTgt.code} onChange={e=>setPhotoTgt(LANGS.find(l=>l.code===e.target.value))} style={{flex:1}}>{LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}</select></div>
+          {!photoImg
+            ?<div className="upz" onClick={()=>fileRef.current?.click()}><ImageIcon size={28}/><span style={{fontSize:14}}>Tap untuk pilih gambar</span><span style={{fontSize:11}}>Menu, papan nama, dokumen, dll.</span></div>
+            :<div>
+              <img src={photoImg} className="prev" alt="preview"/>
+              {photoProc&&<div className="proc">Membaca teks dengan AI...</div>}
+              {photoResult&&<div className="rbox">
+                <div className="rlbl">Teks asli:</div><div className="rorig">{photoResult.original}</div>
+                <div className="rdivp"><div className="rlbl">Terjemahan ({photoTgt.flag} {photoTgt.name}):</div><div className="rtrans">{photoResult.translated}</div></div>
+                <button className="spkbtn" onClick={()=>speak(photoResult.translated,photoTgt.speech)}><Volume2 size={12}/>Putar audio</button>
+              </div>}
+              <button className="rstbtn" onClick={()=>{setPhotoImg(null);setPhotoResult(null);}}><RotateCcw size={12}/>Pilih gambar lain</button>
+            </div>
+          }
+          <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
+        </div>}
       </div>
     </>
   );
