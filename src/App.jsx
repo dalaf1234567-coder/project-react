@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Mic, MicOff, Camera, ArrowLeftRight, Volume2, WifiOff, X,
   ImageIcon, RotateCcw, Trash2, GraduationCap, ChevronDown,
-  ChevronUp, Video, VideoOff, Captions, CaptionsOff, MessageCircle
+  ChevronUp, Video, VideoOff, MessageCircle, AlertCircle
 } from "lucide-react";
 
 const LANGS = [
@@ -36,7 +36,7 @@ const css = `
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#030712}
 .app{font-family:'Noto Sans',sans-serif;background:#030712;color:#f1f5f9;min-height:100vh;display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:relative}
-select{background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:10px;padding:8px 12px;font-size:13px;outline:none;cursor:pointer;font-family:inherit}
+select{background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:10px;padding:8px 10px;font-size:13px;outline:none;cursor:pointer;font-family:inherit}
 select:hover{border-color:#475569}
 textarea{background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:12px;padding:12px;font-size:14px;outline:none;font-family:inherit;resize:none;width:100%;line-height:1.6}
 textarea:focus{border-color:#0891b2}
@@ -111,7 +111,8 @@ button{cursor:pointer;font-family:inherit}
 .tpill{display:flex;justify-content:center}
 .tpill div{background:#1e293b;border-radius:20px;padding:6px 16px;font-size:12px;color:#94a3b8;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.err{margin:0 16px 8px;background:#450a0a;border:1px solid #7f1d1d;color:#fca5a5;font-size:12px;padding:8px 12px;border-radius:10px;display:flex;align-items:center;justify-content:space-between}
+.err{margin:0 12px 8px;background:#450a0a;border:1px solid #7f1d1d;color:#fca5a5;font-size:12px;padding:8px 12px;border-radius:10px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;line-height:1.5}
+.warn{margin:0 12px 8px;background:#1c1a07;border:1px solid #713f12;color:#fcd34d;font-size:12px;padding:8px 12px;border-radius:10px;display:flex;align-items:flex-start;gap:8px;line-height:1.5}
 .actions{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #1e293b;background:#030712}
 .mic-btn{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 18px;border-radius:14px;border:2px solid;background:none;font-family:inherit;position:relative;transition:all .2s}
 .mic-btn:disabled{opacity:.4;cursor:not-allowed}
@@ -147,45 +148,56 @@ button{cursor:pointer;font-family:inherit}
 .rstbtn{display:flex;align-items:center;gap:4px;font-size:11px;color:#475569;background:none;border:none;cursor:pointer;margin-top:8px;font-family:inherit}
 .proc{text-align:center;font-size:12px;color:#64748b;padding:16px;animation:pulse 1.5s infinite}
 
-/* ── VIDEO TAB ── */
+/* VIDEO TAB */
 .vbody{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.vcontrols{padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #1e293b;flex-wrap:wrap}
-.vcontrols span{font-size:12px;color:#64748b;white-space:nowrap}
+
+.vlang-bar{padding:10px 14px;background:#0f172a;border-bottom:1px solid #1e293b;display:flex;flex-direction:column;gap:8px}
+.vlang-row{display:flex;align-items:center;gap:8px}
+.vlang-lbl{font-size:11px;color:#64748b;white-space:nowrap;min-width:80px;font-weight:600}
+.vlang-row select{flex:1;font-size:12px;padding:6px 10px}
+.vtip{background:#0c1a26;border:1px solid #164e63;border-radius:10px;padding:8px 10px;font-size:11px;color:#67e8f9;line-height:1.5;display:flex;align-items:flex-start;gap:7px}
+.vtip svg{flex-shrink:0;margin-top:1px;opacity:.8}
+
 .vcam-wrap{position:relative;width:100%;background:#000;flex-shrink:0}
-.vcam-wrap video{width:100%;max-height:52vw;object-fit:cover;display:block}
-.vcam-placeholder{width:100%;height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#334155;gap:10px;font-size:13px}
+.vcam-placeholder{width:100%;height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#334155;gap:10px;font-size:13px;background:#050d18}
 
-/* subtitle overlay on video */
-.sub-overlay{position:absolute;bottom:0;left:0;right:0;padding:12px 14px 14px;background:linear-gradient(transparent, rgba(0,0,0,0.85));pointer-events:none;min-height:60px;display:flex;flex-direction:column;justify-content:flex-end;gap:4px}
-.sub-interim{font-size:14px;color:rgba(255,255,255,0.6);font-style:italic;line-height:1.4;text-shadow:0 1px 4px rgba(0,0,0,.8)}
-.sub-original{font-size:13px;color:rgba(200,230,255,0.85);line-height:1.4;text-shadow:0 1px 4px rgba(0,0,0,.8)}
-.sub-translated{font-size:17px;font-weight:700;color:#fff;line-height:1.4;text-shadow:0 2px 6px rgba(0,0,0,.9),0 0 20px rgba(34,211,238,.4)}
-.sub-lang-badge{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:3px 8px;font-size:10px;font-weight:600;color:#22d3ee;pointer-events:none}
-.sub-rec-badge{position:absolute;top:10px;right:10px;display:flex;align-items:center;gap:5px;background:rgba(220,38,38,.8);border-radius:12px;padding:3px 8px;font-size:10px;font-weight:700;color:#fff}
+/* subtitle overlay */
+.sub-overlay{position:absolute;bottom:0;left:0;right:0;padding:10px 12px 12px;background:linear-gradient(transparent,rgba(0,0,0,.88));pointer-events:none;min-height:70px;display:flex;flex-direction:column;justify-content:flex-end;gap:3px}
+.sub-interim{font-size:13px;color:rgba(255,255,255,.55);font-style:italic;line-height:1.4;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.sub-original{font-size:12px;color:rgba(200,230,255,.8);line-height:1.4;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.sub-translated{font-size:18px;font-weight:700;color:#fff;line-height:1.4;text-shadow:0 2px 8px rgba(0,0,0,.9),0 0 20px rgba(34,211,238,.35)}
+.sub-translating{font-size:15px;font-weight:600;color:rgba(255,255,255,.5);animation:pulse 1s infinite}
+.src-badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:3px 8px;font-size:10px;font-weight:700;color:#22d3ee;pointer-events:none}
+.rec-badge{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:5px;background:rgba(220,38,38,.85);border-radius:10px;padding:3px 8px;font-size:10px;font-weight:700;color:#fff}
+.rec-dot-anim{width:7px;height:7px;background:#fff;border-radius:50%;animation:pulse 1s infinite;flex-shrink:0}
 
-/* subtitle history box below video */
-.sub-history{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px;min-height:120px;max-height:200px}
-.sub-history-empty{display:flex;align-items:center;justify-content:center;height:80px;color:#334155;font-size:12px;text-align:center}
-.sub-item{background:#0f172a;border-radius:10px;padding:10px 12px;border-left:3px solid #0891b2}
-.sub-item-orig{font-size:12px;color:#94a3b8;margin-bottom:4px;line-height:1.4}
-.sub-item-lang{font-size:10px;color:#0891b2;margin-bottom:2px;font-weight:600}
-.sub-item-trans{font-size:14px;color:#f1f5f9;font-weight:500;line-height:1.4}
+.sub-history{flex:1;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:6px;min-height:100px;max-height:180px}
+.sub-empty{display:flex;align-items:center;justify-content:center;height:80px;color:#334155;font-size:12px;text-align:center;line-height:1.5}
+.sub-item{background:#0f172a;border-radius:10px;padding:8px 12px;border-left:3px solid #0891b2}
+.sub-item-meta{font-size:10px;color:#0891b2;margin-bottom:3px;font-weight:600}
+.sub-item-orig{font-size:12px;color:#94a3b8;margin-bottom:3px;line-height:1.4}
+.sub-item-trans{font-size:14px;color:#f1f5f9;font-weight:600;line-height:1.4}
 
-/* video bottom controls */
-.vbottom{padding:12px 16px;border-top:1px solid #1e293b;display:flex;align-items:center;gap:10px;background:#030712}
-.vstart-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:14px;font-size:14px;font-weight:700;border:2px solid;font-family:inherit;transition:all .2s}
+.vbottom{padding:12px 14px;border-top:1px solid #1e293b;background:#030712}
+.vstart-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border-radius:14px;font-size:15px;font-weight:700;border:2px solid;font-family:inherit;transition:all .2s}
 .vstart-btn.idle{background:#0f172a;border-color:#164e63;color:#22d3ee}
 .vstart-btn.idle:hover{background:#083344;border-color:#0891b2}
-.vstart-btn.live{background:#0e7490;border-color:#22d3ee;color:#fff;animation:pulse 2s infinite}
-.vstart-btn.live:hover{animation:none;background:#0891b2}
-.vtarget{display:flex;flex-direction:column;gap:4px}
-.vtarget span{font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.vstart-btn.live{background:#0e7490;border-color:#22d3ee;color:#fff}
+.vstart-btn.live:hover{background:#ef4444;border-color:#ef4444}
 `;
 
+// ── helpers ──
 function leven(a,b){const m=a.length,n=b.length,dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
 function simScore(t,h){const a=t.toLowerCase().replace(/[^\w\s\u3000-\u9FFF\uAC00-\uD7AF\u0400-\u04FF\u0600-\u06FF]/g,"").trim(),b=h.toLowerCase().replace(/[^\w\s\u3000-\u9FFF\uAC00-\uD7AF\u0400-\u04FF\u0600-\u06FF]/g,"").trim();if(!a||!b)return 0;return Math.max(0,Math.round((1-leven(a,b)/Math.max(a.length,b.length))*100));}
 
-// ── Learn Panel (per bubble) ──
+async function myMemoryTranslate(text, from, to) {
+  const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`);
+  const d = await r.json();
+  if (d.responseStatus === 200 && d.responseData.translatedText) return d.responseData.translatedText;
+  throw new Error("translate_fail");
+}
+
+// ── LearnPanel ──
 function LearnPanel({ text, langName, speechCode, flag }) {
   const [speed, setSpeed] = useState(0.8);
   const [playing, setPlaying] = useState(false);
@@ -203,10 +215,8 @@ function LearnPanel({ text, langName, speechCode, flag }) {
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:500,
-          messages:[{ role:"user", content:
-            `Buat panduan pengucapan untuk teks ${langName} berikut: "${text}"\n\nFormat:\n1. IPA: [tulis IPA]\n2. Baca seperti: [suku kata pakai bunyi Indonesia]\n3. Tips: [satu tips singkat untuk penutur Indonesia]\n\nGunakan teks biasa saja.`
-          }]
+        body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:400,
+          messages:[{ role:"user", content:`Buat panduan pengucapan untuk teks ${langName}: "${text}"\nFormat:\n1. IPA: [...]\n2. Baca seperti: [...suku kata pakai bunyi Indonesia...]\n3. Tips: [...satu tips untuk penutur Indonesia]\nGunakan teks biasa saja.` }]
         })
       });
       const d = await res.json();
@@ -220,9 +230,7 @@ function LearnPanel({ text, langName, speechCode, flag }) {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = speechCode; u.rate = speed;
-    u.onstart = ()=>setPlaying(true);
-    u.onend = ()=>setPlaying(false);
-    u.onerror = ()=>setPlaying(false);
+    u.onstart=()=>setPlaying(true); u.onend=()=>setPlaying(false); u.onerror=()=>setPlaying(false);
     window.speechSynthesis.speak(u);
   };
 
@@ -233,13 +241,12 @@ function LearnPanel({ text, langName, speechCode, flag }) {
     r.lang = speechCode; r.interimResults = false;
     setPracRec(true); setScore(null);
     r.onresult = e => { const h=e.results[0][0].transcript; setHeard(h); setScore(simScore(text,h)); setPracRec(false); };
-    r.onend = ()=>setPracRec(false);
-    r.onerror = ()=>setPracRec(false);
+    r.onend=()=>setPracRec(false); r.onerror=()=>setPracRec(false);
     r.start();
   };
 
-  const sc = s => s>=80?"#4ade80":s>=50?"#facc15":"#f87171";
-  const fb = s => s>=80?{l:"Sempurna! 🎉",c:"g"}:s>=50?{l:"Hampir! Coba lagi 👍",c:"y"}:{l:"Terus berlatih! 💪",c:"r"};
+  const sc=s=>s>=80?"#4ade80":s>=50?"#facc15":"#f87171";
+  const fb=s=>s>=80?{l:"Sempurna! 🎉",c:"g"}:s>=50?{l:"Hampir! Coba lagi 👍",c:"y"}:{l:"Terus berlatih! 💪",c:"r"};
 
   return (
     <div className="lpanel">
@@ -270,162 +277,197 @@ function LearnPanel({ text, langName, speechCode, flag }) {
   );
 }
 
-// ── Video Translation Tab ──
+// ── VideoTab ──
 function VideoTab() {
-  const [targetLang, setTargetLang] = useState(LANGS[0]); // default: Indonesia
+  const [srcLang, setSrcLang] = useState(LANGS[1]);  // bahasa yang diucapkan (default English)
+  const [tgtLang, setTgtLang] = useState(LANGS[0]);  // terjemahan ke (default Indonesia)
   const [isLive, setIsLive] = useState(false);
   const [interim, setInterim] = useState("");
   const [lastOrig, setLastOrig] = useState("");
   const [lastTrans, setLastTrans] = useState("");
-  const [detectedLang, setDetectedLang] = useState("");
+  const [translating, setTranslating] = useState(false);
   const [history, setHistory] = useState([]);
   const [camErr, setCamErr] = useState("");
-  const [translating, setTranslating] = useState(false);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const srRef = useRef(null);
+  const isLiveRef = useRef(false);
   const histEnd = useRef(null);
 
   useEffect(()=>{ histEnd.current?.scrollIntoView({behavior:"smooth"}); },[history]);
-  useEffect(()=>()=>stopAll(),[]);
+  useEffect(()=>()=>{ stopAll(); },[]);
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:"environment" }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"environment" }, audio:false });
       streamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
+      if (videoRef.current) { videoRef.current.srcObject = stream; }
       setCamErr("");
-    } catch(e) {
-      setCamErr("Izin kamera ditolak atau tidak tersedia.");
+      return true;
+    } catch {
+      setCamErr("Izin kamera ditolak. Coba tanpa kamera — mikrofon tetap bisa menerjemahkan.");
+      return false;
     }
   };
 
   const stopCamera = () => {
-    if (streamRef.current) { streamRef.current.getTracks().forEach(t=>t.stop()); streamRef.current=null; }
+    streamRef.current?.getTracks().forEach(t=>t.stop());
+    streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
   };
 
-  const startSpeech = () => {
+  const startSpeech = (src, tgt) => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { setCamErr("Gunakan Chrome/Edge untuk fitur ini."); return; }
+    if (!SR) { setCamErr("Fitur ini butuh Chrome atau Edge."); return; }
+
     const r = new SR();
     srRef.current = r;
     r.continuous = true;
     r.interimResults = true;
-    r.lang = ""; // empty = browser tries auto-detect
+    r.lang = src.speech;  // ← KUNCI: harus spesifik, bukan ""
 
     r.onresult = async (e) => {
-      let interimText = "", finalText = "";
+      let iText = "", fText = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
-        else interimText += e.results[i][0].transcript;
+        if (e.results[i].isFinal) fText += e.results[i][0].transcript + " ";
+        else iText += e.results[i][0].transcript;
       }
-      if (interimText) setInterim(interimText);
-      if (finalText.trim()) {
+      setInterim(iText);
+      if (fText.trim()) {
         setInterim("");
-        setLastOrig(finalText.trim());
+        const orig = fText.trim();
+        setLastOrig(orig);
         setTranslating(true);
         try {
-          const res = await fetch("https://api.anthropic.com/v1/messages", {
-            method:"POST", headers:{"Content-Type":"application/json"},
-            body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:300,
-              messages:[{ role:"user", content:
-                `Teks ini hasil speech-to-text otomatis: "${finalText.trim()}"\n\nTugasmu:\n1. Deteksi bahasa aslinya (nama bahasa dalam bahasa Indonesia)\n2. Terjemahkan ke ${targetLang.name}\n\nBalas HANYA JSON valid tanpa markdown: {"lang":"nama bahasa","translated":"terjemahan"}`
-              }]
-            })
-          });
-          const d = await res.json();
-          const txt = d.content.map(b=>b.text||"").join("").replace(/```json|```/g,"").trim();
-          const parsed = JSON.parse(txt);
-          setDetectedLang(parsed.lang || "");
-          setLastTrans(parsed.translated || "");
-          setHistory(p=>[...p,{ id:Date.now(), orig:finalText.trim(), lang:parsed.lang, trans:parsed.translated }]);
-        } catch { setLastTrans("[Gagal menerjemahkan]"); }
-        finally { setTranslating(false); }
+          const trans = await myMemoryTranslate(orig, src.code, tgt.code);
+          setLastTrans(trans);
+          setHistory(p => [...p, { id:Date.now(), orig, trans, srcFlag:src.flag, tgtFlag:tgt.flag, srcName:src.name }]);
+        } catch {
+          setLastTrans("⚠ Gagal — periksa koneksi");
+        } finally {
+          setTranslating(false);
+        }
       }
     };
 
-    r.onerror = e => { if(e.error==="not-allowed") setCamErr("Izin mikrofon ditolak."); };
-    r.onend = () => { if (isLive && srRef.current) { try{ srRef.current.start(); }catch{} } };
-    try { r.start(); } catch {}
+    r.onerror = (ev) => {
+      if (ev.error === "not-allowed") setCamErr("Izin mikrofon ditolak.");
+      else if (ev.error === "no-speech") {} // abaikan, akan auto-restart
+      else if (ev.error === "network") setCamErr("Tidak ada koneksi internet.");
+    };
+
+    // auto-restart agar terus listen
+    r.onend = () => {
+      if (isLiveRef.current) {
+        try { r.start(); } catch {}
+      }
+    };
+
+    try { r.start(); } catch(e) { setCamErr("Gagal mulai mikrofon: " + e.message); }
   };
 
-  const stopSpeech = () => { try{ srRef.current?.stop(); }catch{} srRef.current=null; };
+  const stopSpeech = () => {
+    isLiveRef.current = false;
+    try { srRef.current?.stop(); } catch {}
+    srRef.current = null;
+  };
 
   const stopAll = () => { stopCamera(); stopSpeech(); };
 
   const toggle = async () => {
     if (isLive) {
       setIsLive(false);
+      isLiveRef.current = false;
       stopAll();
-      setInterim(""); setLastOrig(""); setLastTrans(""); setDetectedLang("");
+      setInterim(""); setLastOrig(""); setLastTrans("");
     } else {
+      isLiveRef.current = true;
       setIsLive(true);
       await startCamera();
-      startSpeech();
+      startSpeech(srcLang, tgtLang);
     }
   };
 
   return (
     <div className="vbody">
-      {/* Controls row */}
-      <div className="vcontrols">
-        <span>Subtitle ke:</span>
-        <select value={targetLang.code} onChange={e=>setTargetLang(LANGS.find(l=>l.code===e.target.value))} style={{flex:1}}>
-          {LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
-        </select>
-        {history.length>0&&<button className="clrbtn" onClick={()=>{setHistory([]);setLastOrig("");setLastTrans("");setDetectedLang("");}}><Trash2 size={14}/></button>}
-      </div>
-
-      {camErr&&<div className="err" style={{margin:"8px 12px"}}><span>{camErr}</span><X size={13} onClick={()=>setCamErr("")}/></div>}
-
-      {/* Camera + overlay */}
-      <div className="vcam-wrap">
-        {isLive
-          ? <video ref={videoRef} muted playsInline autoPlay style={{width:"100%",maxHeight:"52vw",minHeight:180,objectFit:"cover",display:"block"}}/>
-          : <div className="vcam-placeholder">
-              <Video size={40} style={{opacity:.25}}/>
-              <p>Tekan <strong style={{color:"#22d3ee"}}>Mulai</strong> untuk buka kamera</p>
-              <p style={{fontSize:11,opacity:.6}}>Arahkan ke orang yang sedang bicara</p>
-            </div>
-        }
-
-        {isLive && (
-          <>
-            {detectedLang && <div className="sub-lang-badge">🌐 {detectedLang}</div>}
-            <div className="sub-rec-badge"><span style={{width:7,height:7,background:"#fff",borderRadius:"50%",display:"inline-block",animation:"pulse 1s infinite"}}/>REC</div>
-            <div className="sub-overlay">
-              {interim && <div className="sub-interim">{interim}...</div>}
-              {lastOrig && <div className="sub-original">〔{lastOrig}〕</div>}
-              {translating
-                ? <div className="sub-translated" style={{opacity:.6,animation:"pulse 1s infinite"}}>Menerjemahkan...</div>
-                : lastTrans && <div className="sub-translated">{targetLang.flag} {lastTrans}</div>
-              }
-            </div>
-          </>
+      {/* Lang selector */}
+      <div className="vlang-bar">
+        <div className="vlang-row">
+          <span className="vlang-lbl">🎤 Bahasa orang:</span>
+          <select value={srcLang.code} onChange={e=>setSrcLang(LANGS.find(l=>l.code===e.target.value))} disabled={isLive}>
+            {LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
+          </select>
+        </div>
+        <div className="vlang-row">
+          <span className="vlang-lbl">📝 Subtitle ke:</span>
+          <select value={tgtLang.code} onChange={e=>setTgtLang(LANGS.find(l=>l.code===e.target.value))} disabled={isLive}>
+            {LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
+          </select>
+        </div>
+        {!isLive && (
+          <div className="vtip">
+            <AlertCircle size={13}/>
+            <span>Pilih bahasa yang diucapkan dengan benar sebelum mulai — ini kunci agar terjemahan akurat. Untuk YouTube: dekatkan HP ke speaker.</span>
+          </div>
         )}
       </div>
 
-      {/* History subtitle box */}
-      <div className="sub-history">
-        {!history.length
-          ? <div className="sub-history-empty">Riwayat subtitle akan muncul di sini</div>
-          : history.map(h=>(
-              <div key={h.id} className="sub-item">
-                <div className="sub-item-lang">🌐 {h.lang || "?"}</div>
-                <div className="sub-item-orig">{h.orig}</div>
-                <div className="sub-item-trans">{targetLang.flag} {h.trans}</div>
-              </div>
-            ))
+      {camErr && <div className="warn" style={{margin:"6px 12px"}}><AlertCircle size={13} style={{flexShrink:0,marginTop:1}}/><span>{camErr}</span></div>}
+
+      {/* Camera */}
+      <div className="vcam-wrap">
+        {isLive
+          ? <video ref={videoRef} muted playsInline autoPlay style={{width:"100%",minHeight:180,maxHeight:"50vw",objectFit:"cover",display:"block"}}/>
+          : <div className="vcam-placeholder">
+              <Video size={38} style={{opacity:.2}}/>
+              <p style={{fontWeight:600}}>Tekan <span style={{color:"#22d3ee"}}>Mulai</span> untuk buka kamera</p>
+              <p style={{fontSize:11,opacity:.5}}>Arahkan ke orang yang bicara</p>
+            </div>
         }
-        <div ref={histEnd}/>
+        {isLive && <>
+          <div className="src-badge">{srcLang.flag} {srcLang.name} → {tgtLang.flag}</div>
+          <div className="rec-badge"><span className="rec-dot-anim"/>LIVE</div>
+          <div className="sub-overlay">
+            {interim && <div className="sub-interim">{interim}...</div>}
+            {lastOrig && <div className="sub-original">〔{lastOrig}〕</div>}
+            {translating
+              ? <div className="sub-translating">⏳ Menerjemahkan...</div>
+              : lastTrans && <div className="sub-translated">{tgtLang.flag} {lastTrans}</div>
+            }
+          </div>
+        </>}
       </div>
 
-      {/* Start/Stop button */}
+      {/* History */}
+      <div className="sub-history">
+        {!history.length
+          ? <div className="sub-empty">Hasil terjemahan akan muncul di sini<br/><span style={{opacity:.5,fontSize:11}}>setiap kalimat yang terdeteksi</span></div>
+          : <>
+            {history.map(h=>(
+              <div key={h.id} className="sub-item">
+                <div className="sub-item-meta">{h.srcFlag} {h.srcName} → {h.tgtFlag}</div>
+                <div className="sub-item-orig">{h.orig}</div>
+                <div className="sub-item-trans">{h.trans}</div>
+              </div>
+            ))}
+            <div ref={histEnd}/>
+          </>
+        }
+      </div>
+
+      {/* Start/Stop */}
       <div className="vbottom">
+        {history.length > 0 && !isLive && (
+          <button onClick={()=>setHistory([])} style={{background:"none",border:"none",color:"#475569",fontSize:12,display:"flex",alignItems:"center",gap:4,marginBottom:8,cursor:"pointer"}}>
+            <Trash2 size={12}/> Hapus riwayat
+          </button>
+        )}
         <button className={`vstart-btn ${isLive?"live":"idle"}`} onClick={toggle}>
-          {isLive?<><VideoOff size={18}/>Hentikan Terjemahan</>:<><Video size={18}/>Mulai Terjemahan Video</>}
+          {isLive
+            ? <><VideoOff size={18}/> Hentikan Terjemahan</>
+            : <><Video size={18}/> Mulai Terjemahan Video</>
+          }
         </button>
       </div>
     </div>
@@ -453,14 +495,13 @@ export default function App() {
   const feedEnd = useRef(null);
 
   useEffect(()=>{
-    const on=()=>setIsOnline(true),off=()=>setIsOnline(false);
+    const on=()=>setIsOnline(true), off=()=>setIsOnline(false);
     window.addEventListener("online",on); window.addEventListener("offline",off);
     return()=>{ window.removeEventListener("online",on); window.removeEventListener("offline",off); };
   },[]);
   useEffect(()=>{ feedEnd.current?.scrollIntoView({behavior:"smooth"}); },[messages,translating,openLearn]);
 
   const showErr=m=>{setError(m);setTimeout(()=>setError(""),4000);};
-  const doTrans=async(text,from,to)=>{ const r=await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`); const d=await r.json(); if(d.responseStatus===200)return d.responseData.translatedText; throw new Error(); };
   const speak=(text,sc,rate=1)=>{ if(!window.speechSynthesis)return; window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang=sc; u.rate=rate; window.speechSynthesis.speak(u); };
 
   const startListen=side=>{
@@ -470,9 +511,11 @@ export default function App() {
     if(listening){recRef.current?.stop();return;}
     const src=side==="A"?langA:langB, tgt=side==="A"?langB:langA;
     const r=new SR(); recRef.current=r; r.lang=src.speech; r.interimResults=false; setListening(side);
-    r.onresult=async e=>{ const orig=e.results[0][0].transcript; setListening(null); setTranslating(true);
-      try{ const trans=await doTrans(orig,src.code,tgt.code); setMessages(p=>[...p,{id:Date.now(),side,orig,trans,src,tgt}]); speak(trans,tgt.speech); }
-      catch{ showErr("Terjemahan gagal."); } finally{ setTranslating(false); } };
+    r.onresult=async e=>{
+      const orig=e.results[0][0].transcript; setListening(null); setTranslating(true);
+      try{ const trans=await myMemoryTranslate(orig,src.code,tgt.code); setMessages(p=>[...p,{id:Date.now(),side,orig,trans,src,tgt}]); speak(trans,tgt.speech); }
+      catch{ showErr("Terjemahan gagal. Periksa koneksi."); } finally{ setTranslating(false); }
+    };
     r.onend=()=>setListening(null);
     r.onerror=ev=>{setListening(null); showErr(ev.error==="not-allowed"?"Izin mikrofon ditolak.":"Gagal tangkap suara.");};
     r.start();
@@ -481,8 +524,10 @@ export default function App() {
   const handlePhoto=e=>{ const file=e.target.files[0]; if(!file)return; const reader=new FileReader();
     reader.onload=async ev=>{ const url=ev.target.result; setPhotoImg(url); setPhotoProc(true); setPhotoResult(null); const b64=url.split(",")[1];
       try{ const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type,data:b64}},{type:"text",text:`Extract all text from this image and translate to ${photoTgt.name}. Reply ONLY valid JSON no markdown: {"original":"...","translated":"..."}`}]}]})}); const data=await res.json(); const txt=data.content.map(b=>b.text||"").join("").replace(/```json|```/g,"").trim(); setPhotoResult(JSON.parse(txt)); }
-      catch{ setPhotoResult({original:"Tidak ada teks.",translated:"No text found."}); } finally{ setPhotoProc(false); } };
-    reader.readAsDataURL(file); e.target.value=""; };
+      catch{ setPhotoResult({original:"Tidak ada teks.",translated:"No text found."}); } finally{ setPhotoProc(false); }
+    };
+    reader.readAsDataURL(file); e.target.value="";
+  };
 
   const toggleLearn=id=>setOpenLearn(p=>p===id?null:id);
   const swapLangs=()=>{const t=langA;setLangA(langB);setLangB(t);};
@@ -491,6 +536,7 @@ export default function App() {
     <>
       <style>{css}</style>
       <div className="app">
+
         <div className="header">
           <div className="logo">
             <div className="logo-icon">L</div>
@@ -513,7 +559,7 @@ export default function App() {
             <span className="bar-lbl">← Orang lain</span>
           </div>
           <div className="feed">
-            {!messages.length&&!translating&&<div className="empty"><Volume2 size={28} style={{opacity:.3}}/><p>Tekan mikrofon untuk mulai bicara</p><p style={{fontSize:11,opacity:.6}}>Setelah terjemahan muncul, tap <strong style={{color:"#22d3ee"}}>Pelajari Ucapan</strong></p></div>}
+            {!messages.length&&!translating&&<div className="empty"><Volume2 size={28} style={{opacity:.3}}/><p>Tekan mikrofon untuk mulai bicara</p><p style={{fontSize:11,opacity:.6}}>Tap <strong style={{color:"#22d3ee"}}>Pelajari Ucapan</strong> setelah terjemahan muncul</p></div>}
             {messages.map(m=>(
               <div key={m.id} className={`bwrap ${m.side}`}>
                 <div className={`bubble ${m.side}`}>
@@ -530,7 +576,7 @@ export default function App() {
             {translating&&<div className="tpill"><div>Menerjemahkan...</div></div>}
             <div ref={feedEnd}/>
           </div>
-          {error&&<div className="err"><span>{error}</span><X size={13} style={{cursor:"pointer"}} onClick={()=>setError("")}/></div>}
+          {error&&<div className="err"><span>{error}</span><X size={13} style={{cursor:"pointer",flexShrink:0}} onClick={()=>setError("")}/></div>}
           <div className="bar-b">
             <select value={langB.code} onChange={e=>setLangB(LANGS.find(l=>l.code===e.target.value))}>{LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}</select>
             <span className="bar-lbl">Kamu →</span>
@@ -540,8 +586,8 @@ export default function App() {
               {listening==="A"?<MicOff size={22}/>:<Mic size={22}/>}<span className="mic-lbl">{listening==="A"?"Berhenti":langA.name}</span>{listening==="A"&&<span className="rdot"/>}
             </button>
             <div className="cbtns">
-              <button className="ibtn" onClick={swapLangs} title="Tukar bahasa"><ArrowLeftRight size={15}/></button>
-              <button className="ibtn" onClick={()=>{setShowPhoto(true);setPhotoImg(null);setPhotoResult(null);}} title="Terjemah foto"><Camera size={15}/></button>
+              <button className="ibtn" onClick={swapLangs}><ArrowLeftRight size={15}/></button>
+              <button className="ibtn" onClick={()=>{setShowPhoto(true);setPhotoImg(null);setPhotoResult(null);}}><Camera size={15}/></button>
             </div>
             <button className={`mic-btn B ${listening==="B"?"rec":""}`} onClick={()=>startListen("B")} disabled={translating||(listening&&listening!=="B")}>
               {listening==="B"?<MicOff size={22}/>:<Mic size={22}/>}<span className="mic-lbl">{listening==="B"?"Stop":langB.name}</span>{listening==="B"&&<span className="rdot"/>}
@@ -555,7 +601,7 @@ export default function App() {
           <div className="pov-hdr"><h3>📷 Terjemah Foto</h3><button className="ibtn" onClick={()=>setShowPhoto(false)}><X size={16}/></button></div>
           <div className="lrow"><span>Terjemahkan ke:</span><select value={photoTgt.code} onChange={e=>setPhotoTgt(LANGS.find(l=>l.code===e.target.value))} style={{flex:1}}>{LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}</select></div>
           {!photoImg
-            ?<div className="upz" onClick={()=>fileRef.current?.click()}><ImageIcon size={28}/><span style={{fontSize:14}}>Tap untuk pilih gambar</span><span style={{fontSize:11}}>Menu, papan nama, dokumen, dll.</span></div>
+            ?<div className="upz" onClick={()=>fileRef.current?.click()}><ImageIcon size={28}/><span style={{fontSize:14}}>Tap untuk pilih gambar</span></div>
             :<div>
               <img src={photoImg} className="prev" alt="preview"/>
               {photoProc&&<div className="proc">Membaca teks dengan AI...</div>}
