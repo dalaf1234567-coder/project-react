@@ -31,14 +31,66 @@ const LANGS = [
   { code: "uk", name: "Українська",flag: "🇺🇦", speech: "uk-UA" },
 ];
 
-// ── Ultra-fast Google Translate (gtx) — no API key, ~50-150ms ──
-async function gtxTranslate(text, src, tgt) {
-  if (!text.trim()) return "";
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${src}&tl=${tgt}&dt=t&q=${encodeURIComponent(text)}`;
-  const r = await fetch(url);
-  const d = await r.json();
-  // response: [[[translated, original, ...],...], ...]
-  return d[0].map(x => x[0]).join("") || "";
+// ══════════════════════════════════════════════════════════════
+//  TURBO TRANSLATION ENGINE — cache + dedup + abort + fallback
+// ══════════════════════════════════════════════════════════════
+
+// LRU-style Map cache (max 500 entries)
+const _tCache = new Map();
+const _MAX_CACHE = 500;
+function _cacheSet(k, v) {
+  if (_tCache.size >= _MAX_CACHE) _tCache.delete(_tCache.keys().next().value);
+  _tCache.set(k, v);
+}
+
+// In-flight deduplication
+const _inflight = new Map();
+
+async function fastTranslate(text, src, tgt, signal) {
+  const t = text.trim();
+  if (!t || src === tgt) return text;
+  const key = `${src}|${tgt}|${t}`;
+
+  // 1. Cache hit → instant return
+  if (_tCache.has(key)) return _tCache.get(key);
+
+  // 2. Deduplicate: same request already in-flight → share promise
+  if (_inflight.has(key)) return _inflight.get(key);
+
+  const promise = (async () => {
+    try {
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${src}&tl=${tgt}&dt=t&q=${encodeURIComponent(t)}`;
+      const r = await fetch(url, signal ? { signal } : undefined);
+      if (!r.ok) throw new Error("gtx " + r.status);
+      const d = await r.json();
+      const result = d[0].map(x => x[0]).filter(Boolean).join("") || t;
+      _cacheSet(key, result);
+      return result;
+    } catch (e) {
+      if (e?.name === "AbortError") return "";
+      // Fallback: MyMemory
+      try {
+        const r2 = await fetch(
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(t)}&langpair=${src}|${tgt}`,
+          signal ? { signal } : undefined
+        );
+        const d2 = await r2.json();
+        const result = d2.responseData?.translatedText || t;
+        _cacheSet(key, result);
+        return result;
+      } catch { return ""; }
+    } finally {
+      _inflight.delete(key);
+    }
+  })();
+
+  _inflight.set(key, promise);
+  return promise;
+}
+
+// Warm cache: pre-translate common UI phrases on load (fire & forget)
+function warmTranslateCache(pairs) {
+  pairs.forEach(([text, src, tgt]) => fastTranslate(text, src, tgt).catch(() => {}));
 }
 
 const css = `
@@ -182,22 +234,7 @@ button{cursor:pointer;font-family:inherit}
 function leven(a,b){const m=a.length,n=b.length,dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
 function simScore(t,h){const a=t.toLowerCase().replace(/[^\w\s\u3000-\u9FFF\uAC00-\uD7AF\u0400-\u04FF\u0600-\u06FF]/g,"").trim(),b=h.toLowerCase().replace(/[^\w\s\u3000-\u9FFF\uAC00-\uD7AF\u0400-\u04FF\u0600-\u06FF]/g,"").trim();if(!a||!b)return 0;return Math.max(0,Math.round((1-leven(a,b)/Math.max(a.length,b.length))*100));}
 
-async function fastTranslate(text, src, tgt) {
-  if (!text.trim() || src === tgt) return text;
-  try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${src}&tl=${tgt}&dt=t&q=${encodeURIComponent(text)}`;
-    const r = await fetch(url);
-    const d = await r.json();
-    return d[0].map(x => x[0]).filter(Boolean).join("") || text;
-  } catch {
-    // fallback MyMemory
-    try {
-      const r2 = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${src}|${tgt}`);
-      const d2 = await r2.json();
-      return d2.responseData?.translatedText || text;
-    } catch { return ""; }
-  }
-}
+// fastTranslate defined above in TURBO ENGINE
 
 // ── LearnPanel ──
 function LearnPanel({ text, langName, speechCode, flag }) {
@@ -213,14 +250,33 @@ function LearnPanel({ text, langName, speechCode, flag }) {
   useEffect(() => { loadPhonetic(); }, []);
   const loadPhonetic = async () => {
     setPhLoad(true);
+    setPhonetic(""); // clear previous
     try {
+      // Use streaming to show text as it arrives (perceived faster)
       const res = await fetch("https://api.anthropic.com/v1/messages", { method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:400,
-          messages:[{ role:"user", content:`Buat panduan pengucapan untuk teks ${langName}: "${text}"\nFormat:\n1. IPA: [...]\n2. Baca seperti: [...suku kata pakai bunyi Indonesia...]\n3. Tips: [satu tips]\nGunakan teks biasa saja.` }]
+        body: JSON.stringify({ model:"claude-haiku-4-5-20251001", max_tokens:300,
+          stream: true,
+          messages:[{ role:"user", content:`Panduan pengucapan singkat untuk ${langName}: "${text}"\n1. IPA:[...]\n2. Baca:[bunyi Indonesia]\n3. Tips:[1 tips]\nSingkat saja.` }]
         })
       });
-      const d = await res.json();
-      setPhonetic(d.content[0]?.text || "");
+      if(!res.ok||!res.body) throw new Error("stream err");
+      const reader=res.body.getReader(); const dec=new TextDecoder(); let buf="";
+      while(true){
+        const {done,value}=await reader.read(); if(done) break;
+        buf+=dec.decode(value,{stream:true});
+        // Parse SSE chunks
+        const lines=buf.split("\n"); buf=lines.pop()||"";
+        for(const line of lines){
+          if(!line.startsWith("data:")) continue;
+          const data=line.slice(5).trim(); if(data==="[DONE]") break;
+          try{
+            const j=JSON.parse(data);
+            if(j.type==="content_block_delta"&&j.delta?.type==="text_delta"){
+              setPhonetic(p=>p+(j.delta.text||""));
+            }
+          }catch{}
+        }
+      }
     } catch { setPhonetic("Gagal memuat panduan."); }
     finally { setPhLoad(false); }
   };
@@ -289,27 +345,32 @@ function VideoTab() {
   const srRef       = useRef(null);
   const isLiveRef   = useRef(false);
   const debounceRef = useRef(null);     // debounce for interim translate
+  const abortRef    = useRef(null);     // AbortController for interim fetch
   const lastInterim = useRef("");
   const histEnd     = useRef(null);
 
   useEffect(()=>{ histEnd.current?.scrollIntoView({behavior:"smooth"}); },[history]);
   useEffect(()=>()=>stopAll(),[]);
 
-  // Translate interim with debounce 300ms — feels real-time
+  // Translate interim with debounce 80ms + AbortController — ultra real-time
   const translateInterim = useCallback(async (text, src, tgt) => {
     if (!text.trim()) return;
     clearTimeout(debounceRef.current);
+    // Abort previous in-flight interim request
+    if (abortRef.current) { try { abortRef.current.abort(); } catch {} }
     debounceRef.current = setTimeout(async () => {
       if (text !== lastInterim.current) return; // stale
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
       const t0 = Date.now();
       try {
-        const tr = await fastTranslate(text, src, tgt);
-        if (text === lastInterim.current) { // still current
+        const tr = await fastTranslate(text, src, tgt, ctrl.signal);
+        if (tr && text === lastInterim.current) {
           setInterimTrans(tr);
           setLatency(Date.now() - t0);
         }
       } catch {}
-    }, 300);
+    }, 80);
   }, []);
 
   const startCamera = async () => {
@@ -384,6 +445,7 @@ function VideoTab() {
   const stopSpeech = () => {
     isLiveRef.current = false;
     clearTimeout(debounceRef.current);
+    if (abortRef.current) { try { abortRef.current.abort(); } catch {} abortRef.current = null; }
     try { srRef.current?.stop(); } catch {}
     srRef.current = null;
   };
@@ -482,7 +544,7 @@ function VideoTab() {
         <button className={`vstart-btn ${isLive?"live":"idle"}`} onClick={toggle}>
           {isLive ? <><VideoOff size={18}/>⏹ Hentikan</> : <><Video size={18}/>▶ Mulai Terjemahan Video</>}
         </button>
-        {!isLive && <div className="speed-info"><Zap size={11}/>Terjemahan interim real-time ~50-200ms</div>}
+        {!isLive && <div className="speed-info"><Zap size={11}/>Ultra-fast · cache · abort · debounce 80ms</div>}
       </div>
     </div>
   );
@@ -509,26 +571,56 @@ export default function App() {
   const feedEnd = useRef(null);
 
   useEffect(()=>{ const on=()=>setIsOnline(true),off=()=>setIsOnline(false); window.addEventListener("online",on); window.addEventListener("offline",off); return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);}; },[]);
+  // Warm up cache with common cross-language pairs on mount
+  useEffect(()=>{
+    warmTranslateCache([
+      ["Halo","id","en"],["Hello","en","id"],
+      ["Terima kasih","id","en"],["Thank you","en","id"],
+    ]);
+  },[]);
   useEffect(()=>{ feedEnd.current?.scrollIntoView({behavior:"smooth"}); },[messages,translating,openLearn]);
 
   const showErr=m=>{setError(m);setTimeout(()=>setError(""),4000);};
   const speak=(text,sc,rate=1)=>{ if(!window.speechSynthesis)return; window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang=sc; u.rate=rate; window.speechSynthesis.speak(u); };
 
+  const listenAbortRef=useRef(null);
   const startListen=side=>{
     if(!isOnline){showErr("Perlu internet.");return;} const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!SR){showErr("Gunakan Chrome/Edge.");return;} if(listening){recRef.current?.stop();return;}
     const src=side==="A"?langA:langB,tgt=side==="A"?langB:langA; const r=new SR(); recRef.current=r; r.lang=src.speech; r.interimResults=false; setListening(side);
-    r.onresult=async e=>{ const orig=e.results[0][0].transcript; setListening(null); setTranslating(true);
-      try{ const trans=await fastTranslate(orig,src.code,tgt.code); setMessages(p=>[...p,{id:Date.now(),side,orig,trans,src,tgt}]); speak(trans,tgt.speech); }
-      catch{ showErr("Terjemahan gagal."); } finally{ setTranslating(false); } };
+    r.onresult=async e=>{
+      const orig=e.results[0][0].transcript; setListening(null); setTranslating(true);
+      // Abort any previous pending translate
+      if(listenAbortRef.current){try{listenAbortRef.current.abort();}catch{}}
+      const ctrl=new AbortController(); listenAbortRef.current=ctrl;
+      try{
+        const trans=await fastTranslate(orig,src.code,tgt.code,ctrl.signal);
+        if(trans) setMessages(p=>[...p,{id:Date.now(),side,orig,trans,src,tgt}]);
+        if(trans) speak(trans,tgt.speech);
+      }
+      catch(err){ if(err?.name!=="AbortError") showErr("Terjemahan gagal."); }
+      finally{ setTranslating(false); }
+    };
     r.onend=()=>setListening(null); r.onerror=ev=>{setListening(null);showErr(ev.error==="not-allowed"?"Izin mikrofon ditolak.":"Gagal tangkap suara.");};
     r.start();
   };
 
   const handlePhoto=e=>{ const file=e.target.files[0]; if(!file)return; const reader=new FileReader();
-    reader.onload=async ev=>{ const url=ev.target.result; setPhotoImg(url); setPhotoProc(true); setPhotoResult(null); const b64=url.split(",")[1];
-      try{ const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type,data:b64}},{type:"text",text:`Extract all text from this image and translate to ${photoTgt.name}. Reply ONLY valid JSON no markdown: {"original":"...","translated":"..."}`}]}]})}); const data=await res.json(); const txt=data.content.map(b=>b.text||"").join("").replace(/```json|```/g,"").trim(); setPhotoResult(JSON.parse(txt)); }
-      catch{ setPhotoResult({original:"Tidak ada teks.",translated:"No text found."}); } finally{ setPhotoProc(false); }
+    reader.onload=async ev=>{
+      const url=ev.target.result; setPhotoImg(url); setPhotoProc(true); setPhotoResult(null);
+      const b64=url.split(",")[1];
+      try{
+        // STEP 1: OCR only (fast) — extract text first
+        const ocrRes=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type,data:b64}},{type:"text",text:"Extract ALL visible text from this image. Reply ONLY the raw text, nothing else. If no text found, reply: NONE"}]}]})});
+        const ocrData=await ocrRes.json();
+        const rawText=(ocrData.content[0]?.text||"").trim();
+        if(!rawText||rawText==="NONE"){ setPhotoResult({original:"Tidak ada teks.",translated:"No text found."}); return; }
+        // STEP 2: Parallel translate using turbo engine (cached + deduped)
+        const translated=await fastTranslate(rawText,"auto",photoTgt.code);
+        setPhotoResult({original:rawText,translated:translated||rawText});
+      }
+      catch{ setPhotoResult({original:"Tidak ada teks.",translated:"No text found."}); }
+      finally{ setPhotoProc(false); }
     }; reader.readAsDataURL(file); e.target.value=""; };
 
   const toggleLearn=id=>setOpenLearn(p=>p===id?null:id);
