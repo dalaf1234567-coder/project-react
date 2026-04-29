@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Mic, MicOff, Camera, ArrowLeftRight, Volume2, WifiOff, X,
   ImageIcon, RotateCcw, Trash2, GraduationCap, ChevronDown,
-  ChevronUp, Video, VideoOff, MessageCircle, AlertCircle, Zap
+  ChevronUp, Video, VideoOff, MessageCircle, AlertCircle, Zap,
+  BookOpen, FileText, Layers
 } from "lucide-react";
 
 const LANGS = [
@@ -229,6 +230,53 @@ button{cursor:pointer;font-family:inherit}
 .vstart-btn.live{background:linear-gradient(135deg,#dc2626,#b91c1c);border-color:#ef4444;color:#fff;box-shadow:0 0 20px rgba(220,38,38,.4)}
 .vstart-btn.live:hover{background:linear-gradient(135deg,#b91c1c,#991b1b)}
 .speed-info{display:flex;align-items:center;justify-content:center;gap:5px;font-size:11px;color:#b45309;opacity:.8}
+.doc-body{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.doc-mode-bar{display:flex;gap:6px;padding:10px 12px;background:linear-gradient(180deg,#1c0505,#130000);border-bottom:1px solid rgba(245,158,11,.15)}
+.doc-mode-btn{flex:1;padding:8px 4px;border-radius:10px;border:1px solid rgba(245,158,11,.3);background:none;color:#7f3d3d;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:3px}
+.doc-mode-btn.active{background:linear-gradient(135deg,#2d1a00,#1c0f00);border-color:#f59e0b;color:#fbbf24;box-shadow:0 0 10px rgba(245,158,11,.2)}
+.doc-mode-btn:hover:not(.active){border-color:rgba(245,158,11,.5);color:#fca5a5;background:rgba(245,158,11,.04)}
+.doc-lang-bar{padding:8px 12px;background:#130000;border-bottom:1px solid rgba(245,158,11,.12);display:flex;align-items:center;gap:8px}
+.doc-lang-lbl{font-size:11px;color:#b45309;font-weight:700;white-space:nowrap}
+.doc-upload-zone{flex:1;margin:14px 12px;border:2px dashed rgba(245,158,11,.3);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:all .25s;padding:32px 16px;text-align:center;min-height:200px}
+.doc-upload-zone:hover{border-color:rgba(245,158,11,.7);background:rgba(245,158,11,.04);box-shadow:0 0 20px rgba(245,158,11,.08)}
+.doc-upload-icon{font-size:42px;line-height:1}
+.doc-upload-title{font-size:15px;font-weight:700;color:#fbbf24}
+.doc-upload-hint{font-size:12px;color:#b45309;line-height:1.5}
+.doc-upload-sub{font-size:11px;color:#5a2020;display:flex;align-items:center;gap:4px}
+.doc-results{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.doc-results::-webkit-scrollbar{width:3px}
+.doc-results::-webkit-scrollbar-thumb{background:#7f1d1d;border-radius:2px}
+.doc-results-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.doc-results-hdr span{font-size:12px;font-weight:700;color:#fbbf24}
+.doc-clear-btn{background:none;border:1px solid rgba(239,68,68,.3);border-radius:8px;color:#f87171;font-size:11px;padding:3px 8px;cursor:pointer;font-family:inherit;transition:all .2s}
+.doc-clear-btn:hover{background:rgba(239,68,68,.12);border-color:#ef4444}
+.doc-page{background:linear-gradient(135deg,#1c0505,#130000);border:1px solid rgba(245,158,11,.18);border-radius:14px;overflow:hidden;transition:border-color .3s}
+.doc-page.done{border-color:rgba(245,158,11,.35)}
+.doc-page.error{border-color:rgba(239,68,68,.35)}
+.doc-page-hdr{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.doc-thumb{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid rgba(245,158,11,.2);flex-shrink:0}
+.doc-page-info{flex:1;min-width:0}
+.doc-page-num{font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:4px}
+.doc-page-status{font-size:11px;font-weight:600}
+.doc-page-status.pending,.doc-page-status.ocr,.doc-page-status.translating{color:#f59e0b;animation:pulse 1.5s infinite}
+.doc-page-status.done{color:#4ade80}
+.doc-page-status.error{color:#f87171}
+.doc-page-content{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.doc-text-block{border-radius:10px;padding:10px 12px}
+.doc-text-block.orig{background:#0a0000;border-left:3px solid #7f3d3d}
+.doc-text-block.trans{background:rgba(45,26,0,.5);border-left:3px solid #f59e0b}
+.doc-text-lbl{font-size:10px;font-weight:700;letter-spacing:.8px;margin-bottom:5px}
+.doc-text-block.orig .doc-text-lbl{color:#7f3d3d}
+.doc-text-block.trans .doc-text-lbl{color:#f59e0b}
+.doc-text-body{font-size:12px;line-height:1.7;white-space:pre-wrap}
+.doc-text-block.orig .doc-text-body{color:#d4c4a0}
+.doc-text-block.trans .doc-text-body{color:#fde68a;font-weight:500}
+.doc-add-btn{width:100%;padding:11px;border-radius:11px;border:1px dashed rgba(245,158,11,.35);background:none;color:#b45309;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;margin-top:2px}
+.doc-add-btn:hover{border-color:#f59e0b;color:#fbbf24;background:rgba(245,158,11,.05)}
+.doc-progress{padding:0 12px 6px;display:flex;align-items:center;gap:8px}
+.doc-progress-bar-wrap{flex:1;height:4px;background:#1c0505;border-radius:2px;overflow:hidden}
+.doc-progress-bar-fill{height:4px;background:linear-gradient(90deg,#ef4444,#f59e0b);border-radius:2px;transition:width .4s}
+.doc-progress-txt{font-size:10px;color:#f59e0b;white-space:nowrap;font-weight:600}
 `
 
 function leven(a,b){const m=a.length,n=b.length,dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
@@ -322,6 +370,178 @@ function LearnPanel({ text, langName, speechCode, flag }) {
           <button className="spkbtn" style={{marginTop:8}} onClick={playAudio}><Volume2 size={12}/>Dengarkan lagi</button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── DocumentTab – Turbo komik / buku / surat translator ──
+function DocumentTab() {
+  const [mode, setMode] = useState("komik");
+  const [tgtLang, setTgtLang] = useState(LANGS[0]);
+  const [pages, setPages] = useState([]);
+  const [processing, setProcessing] = useState(false);
+  const fileRef = useRef(null);
+  const resultsEnd = useRef(null);
+
+  const MODES = {
+    komik: { icon: "🎭", label: "Komik", hint: "Upload halaman komik (bisa banyak sekaligus)", multi: true, prompt: "Extract ALL text from this comic page in reading order: speech bubbles, captions, signs, sound effects. Reply ONLY the raw extracted text, nothing else. If no text, reply: NONE" },
+    buku: { icon: "📚", label: "Buku", hint: "Upload foto halaman buku atau dokumen panjang", multi: true, prompt: "Extract ALL visible text from this book page in reading order. Include paragraphs, headings, footnotes. Reply ONLY the raw text, nothing else. If no text, reply: NONE" },
+    surat: { icon: "📄", label: "Surat/Dokumen", hint: "Upload foto surat, kontrak, atau dokumen tunggal", multi: false, prompt: "Extract ALL visible text from this document/letter, preserving structure and formatting as much as possible. Reply ONLY the raw text, nothing else. If no text, reply: NONE" },
+  };
+
+  useEffect(() => { resultsEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [pages]);
+
+  const processPage = async (id, b64, mimeType, tgt, prompt) => {
+    const updatePage = (patch) => setPages(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+    updatePage({ status: "ocr" });
+    try {
+      // Step 1: Turbo OCR via Claude Vision
+      const ocrRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514", max_tokens: 800,
+          messages: [{ role: "user", content: [
+            { type: "image", source: { type: "base64", media_type: mimeType, data: b64 } },
+            { type: "text", text: prompt }
+          ]}]
+        })
+      });
+      const ocrData = await ocrRes.json();
+      const rawText = (ocrData.content?.[0]?.text || "").trim();
+      if (!rawText || rawText === "NONE") {
+        updatePage({ orig: "Tidak ada teks", trans: "No text found", status: "done" }); return;
+      }
+      // Step 2: Turbo translate (cached + dedup engine)
+      updatePage({ orig: rawText, status: "translating" });
+      const translated = await fastTranslate(rawText, "auto", tgt.code);
+      updatePage({ orig: rawText, trans: translated || rawText, status: "done" });
+    } catch {
+      updatePage({ orig: "—", trans: "Gagal memproses halaman ini", status: "error" });
+    }
+  };
+
+  const handleFiles = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setProcessing(true);
+    const m = MODES[mode];
+    // Read all files into base64
+    const raw = await Promise.all(files.map((file, i) => new Promise(res => {
+      const reader = new FileReader();
+      reader.onload = ev => res({ id: i, img: ev.target.result, b64: ev.target.result.split(",")[1], mimeType: file.type });
+      reader.readAsDataURL(file);
+    })));
+    // Set pages with pending status
+    setPages(raw.map(p => ({ ...p, orig: "", trans: "", status: "pending" })));
+    // 🚀 TURBO: Process ALL pages in parallel simultaneously
+    await Promise.all(raw.map(p => processPage(p.id, p.b64, p.mimeType, tgtLang, m.prompt)));
+    setProcessing(false);
+    e.target.value = "";
+  };
+
+  const handleAddMore = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    const m = MODES[mode];
+    const startId = pages.length;
+    const raw = await Promise.all(files.map((file, i) => new Promise(res => {
+      const reader = new FileReader();
+      reader.onload = ev => res({ id: startId + i, img: ev.target.result, b64: ev.target.result.split(",")[1], mimeType: file.type });
+      reader.readAsDataURL(file);
+    })));
+    setPages(prev => [...prev, ...raw.map(p => ({ ...p, orig: "", trans: "", status: "pending" }))]);
+    await Promise.all(raw.map(p => processPage(p.id, p.b64, p.mimeType, tgtLang, m.prompt)));
+    e.target.value = "";
+  };
+
+  const doneCount = pages.filter(p => p.status === "done").length;
+  const m = MODES[mode];
+
+  return (
+    <div className="doc-body">
+      <div className="doc-mode-bar">
+        {Object.entries(MODES).map(([key, md]) => (
+          <button key={key} className={`doc-mode-btn ${mode === key ? "active" : ""}`}
+            onClick={() => { if (mode !== key) { setMode(key); setPages([]); } }}>
+            <span style={{fontSize:18}}>{md.icon}</span>{md.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="doc-lang-bar">
+        <span className="doc-lang-lbl">Terjemahkan ke:</span>
+        <select value={tgtLang.code} onChange={e => setTgtLang(LANGS.find(l => l.code === e.target.value))} style={{flex:1}}>
+          {LANGS.map(l => <option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
+        </select>
+      </div>
+
+      {processing && pages.length > 0 && (
+        <div className="doc-progress">
+          <div className="doc-progress-bar-wrap">
+            <div className="doc-progress-bar-fill" style={{width:`${Math.round(doneCount/pages.length*100)}%`}}/>
+          </div>
+          <span className="doc-progress-txt">⚡ {doneCount}/{pages.length} halaman</span>
+        </div>
+      )}
+
+      {!pages.length && (
+        <div className="doc-upload-zone" onClick={() => fileRef.current?.click()}>
+          <div className="doc-upload-icon">{m.icon}</div>
+          <div className="doc-upload-title">Upload {m.label}</div>
+          <div className="doc-upload-hint">{m.hint}</div>
+          <div className="doc-upload-sub"><Zap size={11}/> Semua halaman diproses paralel — TURBO</div>
+        </div>
+      )}
+
+      {pages.length > 0 && (
+        <div className="doc-results">
+          <div className="doc-results-hdr">
+            <span>{m.icon} {m.label} — {pages.length} halaman {processing ? "⚡" : "✅"}</span>
+            <button className="doc-clear-btn" onClick={() => setPages([])}><Trash2 size={11}/> Reset</button>
+          </div>
+          {pages.map((p, i) => (
+            <div key={p.id} className={`doc-page ${p.status}`}>
+              <div className="doc-page-hdr">
+                <img src={p.img} className="doc-thumb" alt={`hal${i+1}`}/>
+                <div className="doc-page-info">
+                  <div className="doc-page-num">{mode === "surat" ? "📄 Dokumen" : `Halaman ${i + 1}`}</div>
+                  <div className={`doc-page-status ${p.status}`}>
+                    {p.status === "pending" && "⏳ Antri..."}
+                    {p.status === "ocr" && "🔍 Membaca teks (AI)..."}
+                    {p.status === "translating" && "⚡ Menerjemahkan..."}
+                    {p.status === "done" && "✅ Selesai"}
+                    {p.status === "error" && "❌ Gagal"}
+                  </div>
+                </div>
+              </div>
+              {(p.orig || p.status === "done") && (
+                <div className="doc-page-content">
+                  <div className="doc-text-block orig">
+                    <div className="doc-text-lbl">📝 TEKS ASLI</div>
+                    <div className="doc-text-body">{p.orig || "—"}</div>
+                  </div>
+                  {p.trans && (
+                    <div className="doc-text-block trans">
+                      <div className="doc-text-lbl">{tgtLang.flag} TERJEMAHAN ({tgtLang.name.toUpperCase()})</div>
+                      <div className="doc-text-body">{p.trans}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          <div ref={resultsEnd}/>
+          {!processing && m.multi && (
+            <button className="doc-add-btn" onClick={() => {
+              const inp = document.createElement("input");
+              inp.type = "file"; inp.accept = "image/*"; inp.multiple = true;
+              inp.onchange = handleAddMore; inp.click();
+            }}>+ Tambah Halaman</button>
+          )}
+        </div>
+      )}
+
+      <input ref={fileRef} type="file" accept="image/*" multiple={m.multi} style={{display:"none"}} onChange={handleFiles}/>
     </div>
   );
 }
@@ -641,6 +861,7 @@ export default function App() {
         <div className="tabs">
           <button className={`tab ${tab==="talk"?"active":""}`} onClick={()=>setTab("talk")}><MessageCircle size={14}/>Percakapan</button>
           <button className={`tab ${tab==="video"?"active":""}`} onClick={()=>setTab("video")}><Video size={14}/>Video Subtitle</button>
+          <button className={`tab ${tab==="doc"?"active":""}`} onClick={()=>setTab("doc")}><BookOpen size={14}/>Dokumen</button>
         </div>
 
         {tab==="talk"&&<>
@@ -667,6 +888,8 @@ export default function App() {
         </>}
 
         {tab==="video"&&<VideoTab/>}
+
+        {tab==="doc"&&<DocumentTab/>}
 
         {showPhoto&&<div className="pov">
           <div className="pov-hdr"><h3>📷 Terjemah Foto</h3><button className="ibtn" onClick={()=>setShowPhoto(false)}><X size={16}/></button></div>
