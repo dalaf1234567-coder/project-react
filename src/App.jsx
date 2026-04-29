@@ -861,8 +861,6 @@ export default function App() {
   const feedEnd = useRef(null);
 
   useEffect(()=>{ const on=()=>setIsOnline(true),off=()=>setIsOnline(false); window.addEventListener("online",on); window.addEventListener("offline",off); return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);}; },[]);
-  // Warm-up Tesseract 2 detik setelah app load → foto langsung cepat
-  useEffect(()=>{ const t=setTimeout(()=>getTesseract().catch(()=>{}),2000); return()=>clearTimeout(t); },[getTesseract]);
   // Warm up cache with common cross-language pairs on mount
   useEffect(()=>{
     warmTranslateCache([
@@ -935,6 +933,9 @@ export default function App() {
     };
     init();
   }), []);
+
+  // ── Warm-up Tesseract 2 detik setelah app load (HARUS di sini, setelah getTesseract dideklarasikan) ──
+  useEffect(()=>{ const t=setTimeout(()=>getTesseract().catch(()=>{}),2000); return()=>clearTimeout(t); },[getTesseract]);
 
   // ── Canvas preprocessing: fix white-on-dark, boost contrast ──
   const preprocessImage = useCallback((dataUrl) => new Promise(res => {
