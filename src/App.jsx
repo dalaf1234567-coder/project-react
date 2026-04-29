@@ -899,17 +899,30 @@ export default function App() {
     reader.onload=async ev=>{
       const url=ev.target.result; setPhotoImg(url); setPhotoProc(true); setPhotoResult(null);
       const b64=url.split(",")[1];
+      const mimeType=file.type||"image/jpeg"; // fallback if file.type kosong
       try{
-        // STEP 1: OCR only (fast) — extract text first
-        const ocrRes=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type,data:b64}},{type:"text",text:"Extract ALL visible text from this image. Reply ONLY the raw text, nothing else. If no text found, reply: NONE"}]}]})});
+        const ocrRes=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",max_tokens:800,
+          messages:[{role:"user",content:[
+            {type:"image",source:{type:"base64",media_type:mimeType,data:b64}},
+            {type:"text",text:"Extract ALL visible text from this image exactly as written. Include every word, sentence, quote, caption, label, sign, or any other readable text. Do NOT skip anything. Reply ONLY with the raw extracted text, nothing else. If there is truly zero text, reply: NONE"}
+          ]}]
+        })});
         const ocrData=await ocrRes.json();
-        const rawText=(ocrData.content[0]?.text||"").trim();
-        if(!rawText||rawText==="NONE"){ setPhotoResult({original:"Tidak ada teks.",translated:"No text found."}); return; }
-        // STEP 2: Parallel translate using turbo engine (cached + deduped)
+        // Deteksi error API (misal rate limit, invalid key, dsb)
+        if(ocrData.type==="error"||ocrData.error){
+          const msg=ocrData.error?.message||JSON.stringify(ocrData.error)||"Unknown API error";
+          setPhotoResult({original:"⚠ API Error: "+msg,translated:"Coba lagi atau periksa koneksi internet."}); return;
+        }
+        const rawText=(ocrData.content?.[0]?.text||"").trim(); // ?. aman jika content undefined
+        if(!rawText||rawText==="NONE"){ setPhotoResult({original:"Tidak ada teks terdeteksi di gambar ini.",translated:"No text found."}); return; }
         const translated=await fastTranslate(rawText,"auto",photoTgt.code);
         setPhotoResult({original:rawText,translated:translated||rawText});
       }
-      catch{ setPhotoResult({original:"Tidak ada teks.",translated:"No text found."}); }
+      catch(err){
+        // Tampilkan error asli, bukan disamarkan jadi "Tidak ada teks"
+        setPhotoResult({original:"⚠ Error: "+(err?.message||String(err)),translated:"Gagal memproses gambar. Coba gambar lain."});
+      }
       finally{ setPhotoProc(false); }
     }; reader.readAsDataURL(file); e.target.value=""; };
 
