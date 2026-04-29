@@ -861,6 +861,8 @@ export default function App() {
   const feedEnd = useRef(null);
 
   useEffect(()=>{ const on=()=>setIsOnline(true),off=()=>setIsOnline(false); window.addEventListener("online",on); window.addEventListener("offline",off); return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);}; },[]);
+  // Warm-up Tesseract 2 detik setelah app load → foto langsung cepat
+  useEffect(()=>{ const t=setTimeout(()=>getTesseract().catch(()=>{}),2000); return()=>clearTimeout(t); },[getTesseract]);
   // Warm up cache with common cross-language pairs on mount
   useEffect(()=>{
     warmTranslateCache([
@@ -895,17 +897,82 @@ export default function App() {
     r.start();
   };
 
-  // ── Tesseract.js OCR loader (lazy, cached) ──
-  const tesseractRef = useRef(null);
-  const loadTesseract = () => new Promise((res, rej) => {
-    if (tesseractRef.current) { res(tesseractRef.current); return; }
-    if (window.Tesseract) { tesseractRef.current = window.Tesseract; res(window.Tesseract); return; }
-    const s = document.createElement("script");
-    s.src = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js";
-    s.onload = () => { tesseractRef.current = window.Tesseract; res(window.Tesseract); };
-    s.onerror = () => rej(new Error("Gagal load Tesseract.js"));
-    document.head.appendChild(s);
-  });
+  // ── Tesseract persistent worker (dibuat sekali, reused) ──
+  const tWorkerRef = useRef(null);
+  const tLoadingRef = useRef(false);
+  const tReadyRef = useRef(false);
+
+  const getTesseract = useCallback(() => new Promise((res, rej) => {
+    if (tReadyRef.current && tWorkerRef.current) { res(tWorkerRef.current); return; }
+    if (tLoadingRef.current) {
+      // Tunggu sampai ready
+      const iv = setInterval(() => {
+        if (tReadyRef.current && tWorkerRef.current) { clearInterval(iv); res(tWorkerRef.current); }
+      }, 100);
+      return;
+    }
+    tLoadingRef.current = true;
+    const init = async () => {
+      try {
+        if (!window.Tesseract) {
+          await new Promise((r, e) => {
+            const s = document.createElement("script");
+            s.src = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js";
+            s.onload = r; s.onerror = () => e(new Error("Load gagal")); document.head.appendChild(s);
+          });
+        }
+        const T = window.Tesseract;
+        const w = await T.createWorker("eng+ind+chi_sim+jpn+kor+ara+fra+deu+rus+tha+vie+por+spa", 1, {
+          workerPath: "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/worker.min.js",
+          corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.0/tesseract-core-simd-lstm.wasm.js",
+        });
+        await w.setParameters({ tessedit_ocr_engine_mode: "1" }); // LSTM only = faster
+        tWorkerRef.current = w;
+        tReadyRef.current = true;
+        tLoadingRef.current = false;
+        res(w);
+      } catch(e) { tLoadingRef.current = false; rej(e); }
+    };
+    init();
+  }), []);
+
+  // ── Canvas preprocessing: fix white-on-dark, boost contrast ──
+  const preprocessImage = useCallback((dataUrl) => new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const ctx = c.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const id = ctx.getImageData(0, 0, c.width, c.height);
+      const d = id.data;
+
+      // Sample brightness dari 9 titik untuk deteksi background
+      const sampleBrightness = (x, y) => {
+        const i = (y * c.width + x) * 4;
+        return (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
+      };
+      const pts = [
+        [0,0],[c.width/2,0],[c.width-1,0],
+        [0,c.height/2],[c.width/2,c.height/2],[c.width-1,c.height/2],
+        [0,c.height-1],[c.width/2,c.height-1],[c.width-1,c.height-1]
+      ];
+      const avgBg = pts.reduce((s,[x,y]) => s + sampleBrightness(Math.floor(x), Math.floor(y)), 0) / pts.length;
+      const isDark = avgBg < 128; // background gelap → teks putih
+
+      // Grayscale + boost contrast + invert jika perlu
+      for (let i = 0; i < d.length; i += 4) {
+        let g = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
+        // Boost contrast (factor 2.5)
+        g = Math.min(255, Math.max(0, (g - 128) * 2.5 + 128));
+        if (isDark) g = 255 - g; // invert: teks putih jadi hitam
+        d[i] = d[i+1] = d[i+2] = g;
+      }
+      ctx.putImageData(id, 0, 0);
+      res(c.toDataURL("image/png"));
+    };
+    img.src = dataUrl;
+  }), []);
 
   const handlePhoto = e => {
     const file = e.target.files[0]; if (!file) return;
@@ -914,31 +981,22 @@ export default function App() {
       const url = ev.target.result;
       setPhotoImg(url); setPhotoProc(true); setPhotoResult(null);
       try {
-        // Load Tesseract (Google Lens style — OCR di browser, no API)
-        setPhotoResult({ original: "⏳ Memuat OCR engine...", translated: "" });
-        const T = await loadTesseract();
-        setPhotoResult({ original: "🔍 Membaca teks dari gambar...", translated: "" });
-
-        // Detect multi-language: coba deteksi dulu dengan eng, lalu fallback ke multi
-        const worker = await T.createWorker("eng+ind+chi_sim+jpn+kor+ara+fra+deu+rus+tha+vie+por+spa", 1, {
-          workerPath: "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/worker.min.js",
-          corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.0/tesseract-core-simd-lstm.wasm.js",
-        });
-
-        const { data } = await worker.recognize(url);
-        await worker.terminate();
-
+        setPhotoResult({ original: "⚡ Memproses gambar...", translated: "" });
+        // Preprocess: fix kontras + handle teks putih
+        const processed = await preprocessImage(url);
+        setPhotoResult({ original: "🔍 Membaca teks...", translated: "" });
+        // Pakai worker yang sudah siap (tidak dibuat ulang)
+        const worker = await getTesseract();
+        const { data } = await worker.recognize(processed);
         const rawText = data.text.trim().replace(/\n{3,}/g, "\n\n");
         if (!rawText || rawText.length < 2) {
-          setPhotoResult({ original: "Tidak ada teks terdeteksi di gambar ini.", translated: "No text found." });
-          return;
+          setPhotoResult({ original: "Tidak ada teks terdeteksi.", translated: "No text found." }); return;
         }
-
         setPhotoResult({ original: rawText, translated: "⏳ Menerjemahkan..." });
         const translated = await fastTranslate(rawText, "auto", photoTgt.code);
         setPhotoResult({ original: rawText, translated: translated || rawText });
       } catch (err) {
-        setPhotoResult({ original: "⚠ Error: " + (err?.message || String(err)), translated: "Gagal membaca gambar. Pastikan gambar punya teks yang jelas." });
+        setPhotoResult({ original: "⚠ " + (err?.message || String(err)), translated: "Gagal. Coba lagi." });
       } finally { setPhotoProc(false); }
     };
     reader.readAsDataURL(file); e.target.value = "";
