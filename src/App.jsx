@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Mic, MicOff, Camera, ArrowLeftRight, Volume2, WifiOff, X,
   ImageIcon, RotateCcw, Trash2, GraduationCap, ChevronDown,
-  ChevronUp, Video, VideoOff, MessageCircle, AlertCircle, Zap,
+  ChevronUp, Video, VideoOff, MessageCircle, Zap,
   BookOpen, FileText, Layers
 } from "lucide-react";
 
@@ -202,28 +202,19 @@ button{cursor:pointer;font-family:inherit}
 .rstbtn{display:flex;align-items:center;gap:4px;font-size:11px;color:#5a2020;background:none;border:none;cursor:pointer;margin-top:8px;font-family:inherit}
 .rstbtn:hover{color:#b45309}
 .proc{text-align:center;font-size:12px;color:#7f3d3d;padding:16px;animation:pulse 1.5s infinite}
-.vbody{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.vlang-bar{padding:8px 12px;background:linear-gradient(180deg,#1c0505,#130000);border-bottom:1px solid rgba(245,158,11,.15);display:flex;flex-direction:column;gap:7px}
-.vlang-row{display:flex;align-items:center;gap:8px}
-.vlang-lbl{font-size:11px;color:#b45309;white-space:nowrap;min-width:90px;font-weight:700;letter-spacing:.02em}
-.vlang-row select{flex:1;font-size:12px;padding:6px 8px}
-.vcam-wrap{position:relative;width:100%;background:#000;flex-shrink:0}
-.vcam-placeholder{width:100%;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#5a2020;gap:8px;font-size:13px;background:#080000}
-.sub-overlay{position:absolute;bottom:0;left:0;right:0;padding:8px 10px 10px;background:linear-gradient(transparent,rgba(10,0,0,.92) 60%);pointer-events:none;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;min-height:80px}
-.sub-interim{font-size:13px;color:rgba(255,200,150,.5);font-style:italic;line-height:1.4;text-shadow:0 1px 3px rgba(0,0,0,.9)}
-.sub-interim-trans{font-size:16px;font-weight:600;color:rgba(251,191,36,.85);line-height:1.4;text-shadow:0 2px 6px rgba(0,0,0,.9)}
-.sub-final{font-size:19px;font-weight:800;color:#fff;line-height:1.35;text-shadow:0 2px 10px rgba(0,0,0,1),0 0 25px rgba(239,68,68,.5);letter-spacing:.01em}
-.sub-translating{font-size:15px;font-weight:600;color:rgba(255,255,255,.5);animation:pulse 1s infinite}
-.src-badge{position:absolute;top:8px;left:8px;background:rgba(10,0,0,.75);border:1px solid rgba(245,158,11,.4);border-radius:10px;padding:3px 8px;font-size:10px;font-weight:700;color:#fbbf24;pointer-events:none;display:flex;align-items:center;gap:5px}
-.rec-badge{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:5px;background:rgba(220,38,38,.85);border-radius:10px;padding:3px 8px;font-size:10px;font-weight:700;color:#fff;box-shadow:0 0 10px rgba(220,38,38,.5)}
+.vfull{position:relative;flex:1;display:flex;flex-direction:column;overflow:hidden;background:#000;min-height:300px}
+.vfull-video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block}
+.vfull-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#5a2020;text-align:center;padding:24px;background:linear-gradient(160deg,#050000,#0a0000)}
+.vfull-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:flex-start;justify-content:space-between;padding:10px 12px;z-index:10;background:linear-gradient(rgba(0,0,0,.75) 0%,transparent 100%)}
+.vfull-sub{position:absolute;left:0;right:0;bottom:115px;z-index:10;pointer-events:none;text-align:center;padding:0 16px}
+.vfull-sub-text{display:inline-block;font-size:22px;font-weight:800;color:#fff;line-height:1.4;text-shadow:0 2px 14px #000,0 4px 24px #000;letter-spacing:.01em;background:rgba(0,0,0,.55);padding:8px 18px;border-radius:14px}
+.vfull-bottom{position:absolute;bottom:0;left:0;right:0;z-index:10;padding:12px 14px 18px;background:linear-gradient(transparent,rgba(0,0,0,.93) 35%);display:flex;flex-direction:column;gap:8px}
+.vlang-row-h{display:flex;align-items:center;gap:6px}
+.vlang-row-h select{flex:1;font-size:11px;padding:5px 7px}
+.src-badge{background:rgba(10,0,0,.75);border:1px solid rgba(245,158,11,.4);border-radius:10px;padding:3px 8px;font-size:10px;font-weight:700;color:#fbbf24;display:flex;align-items:center;gap:5px}
+.rec-badge{display:flex;align-items:center;gap:5px;background:rgba(220,38,38,.85);border-radius:10px;padding:3px 8px;font-size:10px;font-weight:700;color:#fff;box-shadow:0 0 10px rgba(220,38,38,.5)}
 .rdot-anim{width:7px;height:7px;background:#fff;border-radius:50%;animation:pulse 1s infinite;flex-shrink:0}
-.latency-badge{position:absolute;bottom:8px;right:8px;background:rgba(10,0,0,.7);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:2px 7px;font-size:10px;color:#fbbf24;pointer-events:none;font-weight:600}
-.sub-history{flex:1;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:5px;min-height:90px;max-height:160px}
-.sub-empty{display:flex;align-items:center;justify-content:center;height:80px;color:#5a2020;font-size:12px;text-align:center;line-height:1.5}
-.sub-item{background:#1c0505;border-radius:9px;padding:7px 11px;border-left:3px solid #f59e0b;display:flex;flex-direction:column;gap:2px}
-.sub-item-orig{font-size:11px;color:#7f3d3d;line-height:1.4}
-.sub-item-trans{font-size:13px;color:#fde68a;font-weight:600;line-height:1.4}
-.vbottom{padding:10px 12px;border-top:1px solid rgba(245,158,11,.15);background:linear-gradient(180deg,#1c0505,#0a0000);display:flex;flex-direction:column;gap:6px}
+.latency-badge{background:rgba(10,0,0,.7);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:2px 7px;font-size:10px;color:#fbbf24;font-weight:600}
 .vstart-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border-radius:14px;font-size:15px;font-weight:700;border:2px solid;font-family:inherit;transition:all .2s}
 .vstart-btn.idle{background:linear-gradient(135deg,#2d0a0a,#1c0505);border-color:rgba(239,68,68,.5);color:#f87171}
 .vstart-btn.idle:hover{border-color:#ef4444;background:#3d0000;box-shadow:0 0 20px rgba(239,68,68,.25)}
@@ -548,45 +539,38 @@ function DocumentTab() {
 
 // ── VideoTab – ultra-fast interim translation ──
 function VideoTab() {
-  const [srcLang, setSrcLang] = useState(LANGS[1]);
-  const [tgtLang, setTgtLang] = useState(LANGS[0]);
-  const [isLive, setIsLive] = useState(false);
-
-  // subtitle state
-  const [interimOrig, setInterimOrig]   = useState("");  // gray — raw speech (partial)
-  const [interimTrans, setInterimTrans] = useState("");  // yellow — live translation of partial
-  const [finalTrans, setFinalTrans]     = useState("");  // white — confirmed final translation
-  const [latency, setLatency]           = useState(null);
-  const [history, setHistory]           = useState([]);
-  const [camErr, setCamErr]             = useState("");
+  const [srcLang, setSrcLang] = useState(LANGS[1]); // English
+  const [tgtLang, setTgtLang] = useState(LANGS[0]); // Indonesia
+  const [isLive, setIsLive]   = useState(false);
+  const [subtitle, setSubtitle] = useState("");      // satu subtitle saja
+  const [latency, setLatency]   = useState(null);
+  const [camErr, setCamErr]     = useState("");
 
   const videoRef    = useRef(null);
   const streamRef   = useRef(null);
   const srRef       = useRef(null);
   const isLiveRef   = useRef(false);
-  const debounceRef = useRef(null);     // debounce for interim translate
-  const abortRef    = useRef(null);     // AbortController for interim fetch
+  const debounceRef = useRef(null);
+  const abortRef    = useRef(null);
   const lastInterim = useRef("");
-  const histEnd     = useRef(null);
+  const clearTimer  = useRef(null);
 
-  useEffect(()=>{ histEnd.current?.scrollIntoView({behavior:"smooth"}); },[history]);
-  useEffect(()=>()=>stopAll(),[]);
+  useEffect(() => () => stopAll(), []);
 
-  // Translate interim with debounce 80ms + AbortController — ultra real-time
+  // Terjemahkan interim real-time (debounce 80ms)
   const translateInterim = useCallback(async (text, src, tgt) => {
     if (!text.trim()) return;
     clearTimeout(debounceRef.current);
-    // Abort previous in-flight interim request
     if (abortRef.current) { try { abortRef.current.abort(); } catch {} }
     debounceRef.current = setTimeout(async () => {
-      if (text !== lastInterim.current) return; // stale
+      if (text !== lastInterim.current) return;
       const ctrl = new AbortController();
       abortRef.current = ctrl;
       const t0 = Date.now();
       try {
         const tr = await fastTranslate(text, src, tgt, ctrl.signal);
         if (tr && text === lastInterim.current) {
-          setInterimTrans(tr);
+          setSubtitle(tr);
           setLatency(Date.now() - t0);
         }
       } catch {}
@@ -595,7 +579,7 @@ function VideoTab() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"environment" }, audio:false });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
       setCamErr(""); return true;
@@ -603,7 +587,7 @@ function VideoTab() {
   };
 
   const stopCamera = () => {
-    streamRef.current?.getTracks().forEach(t=>t.stop());
+    streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
   };
@@ -611,11 +595,10 @@ function VideoTab() {
   const startSpeech = (src, tgt) => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { setCamErr("Butuh Chrome atau Edge."); return; }
-
     const r = new SR();
     srRef.current = r;
     r.continuous = true;
-    r.interimResults = true;   // ← wajib untuk real-time
+    r.interimResults = true;
     r.maxAlternatives = 1;
     r.lang = src.speech;
 
@@ -625,46 +608,39 @@ function VideoTab() {
         if (e.results[i].isFinal) fText += e.results[i][0].transcript + " ";
         else iText += e.results[i][0].transcript;
       }
-
-      // Update interim display immediately (no delay)
+      // Interim: langsung terjemah satu subtitle
       if (iText) {
-        setInterimOrig(iText);
         lastInterim.current = iText;
-        translateInterim(iText, src.code, tgt.code);  // translate partial, debounced 300ms
+        translateInterim(iText, src.code, tgt.code);
       }
-
-      // Final result: translate immediately, no debounce
+      // Final: terjemah final, tampilkan 5 detik lalu hilang
       if (fText.trim()) {
         const orig = fText.trim();
-        setInterimOrig(""); setInterimTrans("");
         lastInterim.current = "";
         clearTimeout(debounceRef.current);
-
         const t0 = Date.now();
         try {
           const trans = await fastTranslate(orig, src.code, tgt.code);
-          const ms = Date.now() - t0;
-          setFinalTrans(trans);
-          setLatency(ms);
-          setHistory(p => [...p.slice(-30), { id:Date.now(), orig, trans, tgtFlag:tgt.flag }]);
-          // clear final after 5s so screen is clean
-          setTimeout(()=>setFinalTrans(""), 5000);
-        } catch { setFinalTrans("⚠ Gagal terjemah"); }
+          setSubtitle(trans);
+          setLatency(Date.now() - t0);
+          clearTimeout(clearTimer.current);
+          clearTimer.current = setTimeout(() => setSubtitle(""), 5000);
+        } catch { setSubtitle("⚠ Gagal terjemah"); }
       }
     };
 
     r.onerror = ev => {
       if (ev.error === "not-allowed") setCamErr("Izin mikrofon ditolak di browser.");
       else if (ev.error === "network") setCamErr("Tidak ada koneksi internet.");
-      // no-speech: abaikan
     };
-    r.onend = () => { if (isLiveRef.current) { try{ r.start(); }catch{} } };
-    try { r.start(); } catch(e) { setCamErr("Gagal start mikrofon: " + e.message); }
+    r.onend = () => { if (isLiveRef.current) { try { r.start(); } catch {} } };
+    try { r.start(); } catch (e) { setCamErr("Gagal start mikrofon: " + e.message); }
   };
 
   const stopSpeech = () => {
     isLiveRef.current = false;
     clearTimeout(debounceRef.current);
+    clearTimeout(clearTimer.current);
     if (abortRef.current) { try { abortRef.current.abort(); } catch {} abortRef.current = null; }
     try { srRef.current?.stop(); } catch {}
     srRef.current = null;
@@ -676,7 +652,7 @@ function VideoTab() {
     if (isLive) {
       setIsLive(false); isLiveRef.current = false;
       stopAll();
-      setInterimOrig(""); setInterimTrans(""); setFinalTrans(""); setLatency(null);
+      setSubtitle(""); setLatency(null);
     } else {
       isLiveRef.current = true; setIsLive(true);
       await startCamera();
@@ -685,86 +661,55 @@ function VideoTab() {
   };
 
   return (
-    <div className="vbody">
-      <div className="vlang-bar">
-        <div className="vlang-row">
-          <span className="vlang-lbl">🎤 Bahasa orang:</span>
-          <select value={srcLang.code} onChange={e=>setSrcLang(LANGS.find(l=>l.code===e.target.value))} disabled={isLive}>
-            {LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
-          </select>
+    <div className="vfull">
+      {/* Video fullscreen atau placeholder */}
+      {isLive
+        ? <video ref={videoRef} muted playsInline autoPlay className="vfull-video"/>
+        : <div className="vfull-placeholder">
+            <Video size={52} style={{opacity:.12}}/>
+            <p style={{fontWeight:700,fontSize:17,color:"#fca5a5"}}>Tekan Mulai</p>
+            <p style={{fontSize:12,opacity:.4,lineHeight:1.6}}>Video fullscreen · subtitle langsung muncul saat ngomong</p>
+          </div>
+      }
+
+      {/* Overlay atas: badge bahasa + LIVE */}
+      {isLive && (
+        <div className="vfull-top">
+          <div className="src-badge"><Zap size={9}/>{srcLang.flag} {srcLang.name} → {tgtLang.flag} {tgtLang.name}</div>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            {latency && <div className="latency-badge">⚡{latency}ms</div>}
+            <div className="rec-badge"><span className="rdot-anim"/>LIVE</div>
+          </div>
         </div>
-        <div className="vlang-row">
-          <span className="vlang-lbl">📝 Subtitle ke:</span>
-          <select value={tgtLang.code} onChange={e=>setTgtLang(LANGS.find(l=>l.code===e.target.value))} disabled={isLive}>
-            {LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
-          </select>
+      )}
+
+      {/* Satu subtitle di tengah bawah */}
+      {isLive && subtitle && (
+        <div className="vfull-sub">
+          <span className="vfull-sub-text">{subtitle}</span>
         </div>
+      )}
+
+      {/* Kontrol bawah */}
+      <div className="vfull-bottom">
+        {camErr && <div className="err" style={{margin:"0 0 6px"}}><span>{camErr}</span><X size={12} onClick={()=>setCamErr("")} style={{flexShrink:0}}/></div>}
+
         {!isLive && (
-          <div className="warn">
-            <AlertCircle size={12} style={{flexShrink:0,marginTop:2}}/>
-            <span>Pilih bahasa yang sedang diucapkan dengan tepat. Untuk YouTube/TV: dekatkan HP ke speaker.</span>
+          <div className="vlang-row-h">
+            <select value={srcLang.code} onChange={e=>setSrcLang(LANGS.find(l=>l.code===e.target.value))}>
+              {LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
+            </select>
+            <span style={{color:"#b45309",fontSize:16,fontWeight:700}}>→</span>
+            <select value={tgtLang.code} onChange={e=>setTgtLang(LANGS.find(l=>l.code===e.target.value))}>
+              {LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
+            </select>
           </div>
         )}
-      </div>
 
-      {camErr && <div className="err" style={{margin:"6px 12px 0"}}><span>{camErr}</span><X size={12} onClick={()=>setCamErr("")} style={{flexShrink:0}}/></div>}
-
-      {/* Camera area */}
-      <div className="vcam-wrap">
-        {isLive
-          ? <video ref={videoRef} muted playsInline autoPlay style={{width:"100%",minHeight:170,maxHeight:"48vw",objectFit:"cover",display:"block"}}/>
-          : <div className="vcam-placeholder">
-              <Video size={36} style={{opacity:.2}}/>
-              <p style={{fontWeight:600}}>Tekan <span style={{color:"#fca5a5"}}>Mulai</span> untuk buka kamera</p>
-              <p style={{fontSize:11,opacity:.5}}>Terjemahan muncul real-time sambil orang bicara</p>
-            </div>
-        }
-
-        {isLive && <>
-          <div className="src-badge"><Zap size={9}/>{srcLang.flag} {srcLang.name} → {tgtLang.flag}</div>
-          <div className="rec-badge"><span className="rdot-anim"/>LIVE</div>
-          {latency && <div className="latency-badge">⚡ {latency}ms</div>}
-
-          <div className="sub-overlay">
-            {/* Layer 1: Raw interim (gray, italic) */}
-            {interimOrig && <div className="sub-interim">{interimOrig}...</div>}
-
-            {/* Layer 2: Live interim translation (yellow) — updates word by word */}
-            {interimTrans && !finalTrans && <div className="sub-interim-trans">{tgtLang.flag} {interimTrans}</div>}
-
-            {/* Layer 3: Final confirmed translation (bright white, big) */}
-            {finalTrans && <div className="sub-final">{tgtLang.flag} {finalTrans}</div>}
-          </div>
-        </>}
-      </div>
-
-      {/* History */}
-      <div className="sub-history">
-        {!history.length
-          ? <div className="sub-empty">Riwayat subtitle muncul di sini<br/><span style={{opacity:.5,fontSize:11}}>setiap kalimat yang selesai</span></div>
-          : <>
-              {history.map(h=>(
-                <div key={h.id} className="sub-item">
-                  <div className="sub-item-orig">{h.orig}</div>
-                  <div className="sub-item-trans">{h.tgtFlag} {h.trans}</div>
-                </div>
-              ))}
-              <div ref={histEnd}/>
-            </>
-        }
-      </div>
-
-      {/* Controls */}
-      <div className="vbottom">
-        {history.length > 0 && !isLive && (
-          <button onClick={()=>setHistory([])} style={{background:"none",border:"none",color:"#475569",fontSize:11,display:"flex",alignItems:"center",gap:4,cursor:"pointer"}}>
-            <Trash2 size={11}/> Hapus riwayat
-          </button>
-        )}
         <button className={`vstart-btn ${isLive?"live":"idle"}`} onClick={toggle}>
           {isLive ? <><VideoOff size={18}/>⏹ Hentikan</> : <><Video size={18}/>▶ Mulai Terjemahan Video</>}
         </button>
-        {!isLive && <div className="speed-info"><Zap size={11}/>Ultra-fast · cache · abort · debounce 80ms</div>}
+        {!isLive && <div className="speed-info"><Zap size={11}/>Subtitle langsung muncul saat ngomong · real-time</div>}
       </div>
     </div>
   );
