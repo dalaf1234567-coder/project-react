@@ -221,6 +221,11 @@ button{cursor:pointer;font-family:inherit}
 .vstart-btn.live{background:linear-gradient(135deg,#dc2626,#b91c1c);border-color:#ef4444;color:#fff;box-shadow:0 0 20px rgba(220,38,38,.4)}
 .vstart-btn.live:hover{background:linear-gradient(135deg,#b91c1c,#991b1b)}
 .speed-info{display:flex;align-items:center;justify-content:center;gap:5px;font-size:11px;color:#b45309;opacity:.8}
+.comic-canvas-wrap{padding:0 0 4px;display:flex;flex-direction:column;gap:8px}
+.comic-canvas{width:100%;display:block;border-radius:10px;border:1px solid rgba(245,158,11,.2)}
+.comic-dl-btn{width:100%;padding:11px;border-radius:11px;background:linear-gradient(135deg,#064e3b,#065f46);border:2px solid #10b981;color:#6ee7b7;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s}
+.comic-dl-btn:hover{background:linear-gradient(135deg,#065f46,#047857);box-shadow:0 0 14px rgba(16,185,129,.35)}
+.comic-no-bubble{text-align:center;padding:12px;font-size:12px;color:#7f3d3d}
 .doc-body{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .doc-mode-bar{display:flex;gap:6px;padding:10px 12px;background:linear-gradient(180deg,#1c0505,#130000);border-bottom:1px solid rgba(245,158,11,.15)}
 .doc-mode-btn{flex:1;padding:8px 4px;border-radius:10px;border:1px solid rgba(245,158,11,.3);background:none;color:#7f3d3d;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:3px}
@@ -365,6 +370,84 @@ function LearnPanel({ text, langName, speechCode, flag }) {
   );
 }
 
+// ── ComicCanvas – renders translated bubbles on canvas + download ──
+function wrapCanvasText(ctx, text, cx, cy, maxW, lineH) {
+  // CJK: split by char; others: split by word
+  const hasSpc = /\s/.test(text);
+  const tokens = hasSpc ? text.split(/\s+/) : Array.from(text);
+  const sep = hasSpc ? " " : "";
+  const lines = []; let line = "";
+  for (const t of tokens) {
+    const test = line + (line ? sep : "") + t;
+    if (ctx.measureText(test).width > maxW - 8 && line) { lines.push(line); line = t; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  const totalH = lines.length * lineH;
+  const startY = cy - totalH / 2 + lineH * 0.72;
+  lines.forEach((l, i) => ctx.fillText(l, cx, startY + i * lineH));
+}
+
+function ComicCanvas({ imgSrc, bubbles, pageNum }) {
+  const canvasRef = useRef(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!canvasRef.current || !imgSrc) return;
+    setReady(false);
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      canvas.width  = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0);
+
+      (bubbles || []).forEach(b => {
+        const x = (b.x / 100) * img.naturalWidth;
+        const y = (b.y / 100) * img.naturalHeight;
+        const w = (b.w / 100) * img.naturalWidth;
+        const h = (b.h / 100) * img.naturalHeight;
+        if (w < 4 || h < 4) return;
+
+        // White overlay over original text
+        ctx.fillStyle = "rgba(255,255,255,0.96)";
+        ctx.fillRect(x, y, w, h);
+
+        // Translated text
+        const txt = b.translated || b.text || "";
+        if (!txt) return;
+        const fontSize = Math.max(9, Math.min(w / Math.max(txt.length * 0.55, 3), h * 0.3, 20));
+        ctx.font = `700 ${fontSize}px 'Noto Sans',Arial,sans-serif`;
+        ctx.fillStyle = "#0a0000";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        wrapCanvasText(ctx, txt, x + w / 2, y + h / 2, w, fontSize * 1.35);
+      });
+      setReady(true);
+    };
+    img.src = imgSrc;
+  }, [imgSrc, bubbles]);
+
+  const download = () => {
+    const a = document.createElement("a");
+    a.download = `komik-terjemahan-hal${pageNum}.png`;
+    a.href = canvasRef.current.toDataURL("image/png");
+    a.click();
+  };
+
+  return (
+    <div className="comic-canvas-wrap">
+      <canvas ref={canvasRef} className="comic-canvas"/>
+      {ready && (
+        <button className="comic-dl-btn" onClick={download}>
+          ⬇ Download Halaman {pageNum}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── DocumentTab – Turbo komik / buku / surat translator ──
 function DocumentTab() {
   const [mode, setMode] = useState("komik");
@@ -374,38 +457,75 @@ function DocumentTab() {
   const fileRef = useRef(null);
   const resultsEnd = useRef(null);
 
+  const COMIC_PROMPT = `Analyze this comic page carefully. Detect ALL text areas: speech bubbles, thought bubbles, caption boxes, narration boxes, sound effects.
+For each text area return its bounding box as percentage of total image dimensions and the text inside.
+Return ONLY valid JSON (no markdown, no extra text):
+{"bubbles":[{"x":5,"y":3,"w":28,"h":12,"text":"Hello there"},{"x":55,"y":15,"w":30,"h":10,"text":"Hi!"}]}
+x,y = top-left corner as % of image width/height. w,h = width/height %. If no text found return: {"bubbles":[]}`;
+
   const MODES = {
-    komik: { icon: "🎭", label: "Komik", hint: "Upload halaman komik (bisa banyak sekaligus)", multi: true, prompt: "Extract ALL text from this comic page in reading order: speech bubbles, captions, signs, sound effects. Reply ONLY the raw extracted text, nothing else. If no text, reply: NONE" },
+    komik: { icon: "🎭", label: "Komik", hint: "Upload halaman komik (bisa banyak sekaligus)", multi: true },
     buku: { icon: "📚", label: "Buku", hint: "Upload foto halaman buku atau dokumen panjang", multi: true, prompt: "Extract ALL visible text from this book page in reading order. Include paragraphs, headings, footnotes. Reply ONLY the raw text, nothing else. If no text, reply: NONE" },
     surat: { icon: "📄", label: "Surat/Dokumen", hint: "Upload foto surat, kontrak, atau dokumen tunggal", multi: false, prompt: "Extract ALL visible text from this document/letter, preserving structure and formatting as much as possible. Reply ONLY the raw text, nothing else. If no text, reply: NONE" },
   };
 
   useEffect(() => { resultsEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [pages]);
 
-  const processPage = async (id, b64, mimeType, tgt, prompt) => {
+  const processPage = async (id, b64, mimeType, tgt, isComic) => {
     const updatePage = (patch) => setPages(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
     updatePage({ status: "ocr" });
     try {
-      // Step 1: Turbo OCR via Claude Vision
-      const ocrRes = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 800,
-          messages: [{ role: "user", content: [
-            { type: "image", source: { type: "base64", media_type: mimeType, data: b64 } },
-            { type: "text", text: prompt }
-          ]}]
-        })
-      });
-      const ocrData = await ocrRes.json();
-      const rawText = (ocrData.content?.[0]?.text || "").trim();
-      if (!rawText || rawText === "NONE") {
-        updatePage({ orig: "Tidak ada teks", trans: "No text found", status: "done" }); return;
+      if (isComic) {
+        // ── COMIC MODE: detect bubble positions + text as JSON ──
+        const ocrRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514", max_tokens: 1500,
+            messages: [{ role: "user", content: [
+              { type: "image", source: { type: "base64", media_type: mimeType, data: b64 } },
+              { type: "text", text: COMIC_PROMPT }
+            ]}]
+          })
+        });
+        const ocrData = await ocrRes.json();
+        let rawJson = (ocrData.content?.[0]?.text || "").trim().replace(/```json\s*|```/g, "").trim();
+        let parsed;
+        try { parsed = JSON.parse(rawJson); } catch {
+          updatePage({ bubbles: [], orig: "Gagal parse bubble", trans: "", status: "error" }); return;
+        }
+        const bubbles = (parsed.bubbles || []).filter(b => b.text?.trim());
+        if (!bubbles.length) {
+          updatePage({ bubbles: [], status: "done" }); return;
+        }
+        updatePage({ status: "translating", bubbles: bubbles.map(b => ({ ...b, translated: "" })) });
+        // Translate ALL bubbles in parallel
+        const translations = await Promise.all(
+          bubbles.map(b => fastTranslate(b.text, "auto", tgt.code).catch(() => b.text))
+        );
+        const finalBubbles = bubbles.map((b, i) => ({ ...b, translated: translations[i] || b.text }));
+        updatePage({ bubbles: finalBubbles, status: "done" });
+      } else {
+        // ── BOOK / LETTER MODE: plain text OCR + translate ──
+        const prompt = MODES[mode]?.prompt || "";
+        const ocrRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514", max_tokens: 800,
+            messages: [{ role: "user", content: [
+              { type: "image", source: { type: "base64", media_type: mimeType, data: b64 } },
+              { type: "text", text: prompt }
+            ]}]
+          })
+        });
+        const ocrData = await ocrRes.json();
+        const rawText = (ocrData.content?.[0]?.text || "").trim();
+        if (!rawText || rawText === "NONE") {
+          updatePage({ orig: "Tidak ada teks", trans: "No text found", status: "done" }); return;
+        }
+        updatePage({ orig: rawText, status: "translating" });
+        const translated = await fastTranslate(rawText, "auto", tgt.code);
+        updatePage({ orig: rawText, trans: translated || rawText, status: "done" });
       }
-      // Step 2: Turbo translate (cached + dedup engine)
-      updatePage({ orig: rawText, status: "translating" });
-      const translated = await fastTranslate(rawText, "auto", tgt.code);
-      updatePage({ orig: rawText, trans: translated || rawText, status: "done" });
     } catch {
       updatePage({ orig: "—", trans: "Gagal memproses halaman ini", status: "error" });
     }
@@ -415,17 +535,14 @@ function DocumentTab() {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     setProcessing(true);
-    const m = MODES[mode];
-    // Read all files into base64
+    const isComic = mode === "komik";
     const raw = await Promise.all(files.map((file, i) => new Promise(res => {
       const reader = new FileReader();
       reader.onload = ev => res({ id: i, img: ev.target.result, b64: ev.target.result.split(",")[1], mimeType: file.type });
       reader.readAsDataURL(file);
     })));
-    // Set pages with pending status
-    setPages(raw.map(p => ({ ...p, orig: "", trans: "", status: "pending" })));
-    // 🚀 TURBO: Process ALL pages in parallel simultaneously
-    await Promise.all(raw.map(p => processPage(p.id, p.b64, p.mimeType, tgtLang, m.prompt)));
+    setPages(raw.map(p => ({ ...p, orig: "", trans: "", bubbles: null, status: "pending" })));
+    await Promise.all(raw.map(p => processPage(p.id, p.b64, p.mimeType, tgtLang, isComic)));
     setProcessing(false);
     e.target.value = "";
   };
@@ -433,15 +550,15 @@ function DocumentTab() {
   const handleAddMore = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
-    const m = MODES[mode];
+    const isComic = mode === "komik";
     const startId = pages.length;
     const raw = await Promise.all(files.map((file, i) => new Promise(res => {
       const reader = new FileReader();
       reader.onload = ev => res({ id: startId + i, img: ev.target.result, b64: ev.target.result.split(",")[1], mimeType: file.type });
       reader.readAsDataURL(file);
     })));
-    setPages(prev => [...prev, ...raw.map(p => ({ ...p, orig: "", trans: "", status: "pending" }))]);
-    await Promise.all(raw.map(p => processPage(p.id, p.b64, p.mimeType, tgtLang, m.prompt)));
+    setPages(prev => [...prev, ...raw.map(p => ({ ...p, orig: "", trans: "", bubbles: null, status: "pending" }))]);
+    await Promise.all(raw.map(p => processPage(p.id, p.b64, p.mimeType, tgtLang, isComic)));
     e.target.value = "";
   };
 
@@ -505,7 +622,15 @@ function DocumentTab() {
                   </div>
                 </div>
               </div>
-              {(p.orig || p.status === "done") && (
+              {/* COMIC MODE: canvas overlay + download */}
+              {mode === "komik" && p.status === "done" && (
+                p.bubbles && p.bubbles.length > 0
+                  ? <ComicCanvas imgSrc={p.img} bubbles={p.bubbles} pageNum={i + 1}/>
+                  : <div className="comic-no-bubble">Tidak ada teks terdeteksi di halaman ini</div>
+              )}
+
+              {/* BOOK / LETTER MODE: text blocks */}
+              {mode !== "komik" && (p.orig || p.status === "done") && (
                 <div className="doc-page-content">
                   <div className="doc-text-block orig">
                     <div className="doc-text-lbl">📝 TEKS ASLI</div>
