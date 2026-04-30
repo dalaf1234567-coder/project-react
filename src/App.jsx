@@ -860,71 +860,30 @@ export default function App() {
   const fileRef = useRef(null);
   const feedEnd = useRef(null);
 
-  // ── Tesseract persistent worker (dibuat sekali, reused) ──
-  const tWorkerRef = useRef(null);
-  const tLoadingRef = useRef(false);
-  const tReadyRef = useRef(false);
-
-  const getTesseract = useCallback(() => new Promise((res, rej) => {
-    if (tReadyRef.current && tWorkerRef.current) { res(tWorkerRef.current); return; }
-    if (tLoadingRef.current) {
-      const iv = setInterval(() => {
-        if (tReadyRef.current && tWorkerRef.current) { clearInterval(iv); res(tWorkerRef.current); }
-      }, 100);
-      return;
-    }
-    tLoadingRef.current = true;
-    const init = async () => {
-      try {
-        if (!window.Tesseract) {
-          await new Promise((r, e) => {
-            const s = document.createElement("script");
-            s.src = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js";
-            s.onload = r; s.onerror = () => e(new Error("Load gagal")); document.head.appendChild(s);
-          });
-        }
-        const T = window.Tesseract;
-        const w = await T.createWorker("eng+ind+chi_sim+jpn+kor+ara+fra+deu+rus+tha+vie+por+spa", 1, {
-          workerPath: "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/worker.min.js",
-          corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.0/tesseract-core-simd-lstm.wasm.js",
-        });
-        await w.setParameters({ tessedit_ocr_engine_mode: "1" });
-        tWorkerRef.current = w; tReadyRef.current = true; tLoadingRef.current = false;
-        res(w);
-      } catch(e) { tLoadingRef.current = false; rej(e); }
-    };
-    init();
-  }), []);
-
-  // ── Canvas preprocessing: fix white-on-dark, boost contrast ──
-  const preprocessImage = useCallback((dataUrl) => new Promise(res => {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement("canvas");
-      c.width = img.naturalWidth; c.height = img.naturalHeight;
-      const ctx = c.getContext("2d");
-      ctx.drawImage(img, 0, 0);
-      const id = ctx.getImageData(0, 0, c.width, c.height);
-      const d = id.data;
-      const sampleBrightness = (x, y) => { const i = (y * c.width + x) * 4; return d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114; };
-      const pts = [[0,0],[c.width/2,0],[c.width-1,0],[0,c.height/2],[c.width/2,c.height/2],[c.width-1,c.height/2],[0,c.height-1],[c.width/2,c.height-1],[c.width-1,c.height-1]];
-      const avgBg = pts.reduce((s,[x,y]) => s + sampleBrightness(Math.floor(x), Math.floor(y)), 0) / pts.length;
-      const isDark = avgBg < 128;
-      for (let i = 0; i < d.length; i += 4) {
-        let g = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
-        g = Math.min(255, Math.max(0, (g - 128) * 2.5 + 128));
-        if (isDark) g = 255 - g;
-        d[i] = d[i+1] = d[i+2] = g;
-      }
-      ctx.putImageData(id, 0, 0);
-      res(c.toDataURL("image/png"));
-    };
-    img.src = dataUrl;
-  }), []);
+  // ── Claude Vision OCR ──
+  const claudeOCR = useCallback(async (dataUrl, mimeType) => {
+    const base64Data = dataUrl.split(",")[1];
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1000,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mimeType, data: base64Data } },
+            { type: "text", text: "Extract all text from this image exactly as it appears, including colored text, small text, and text of any color or style. Output only the raw text content with no explanations or formatting." }
+          ]
+        }]
+      })
+    });
+    if (!res.ok) throw new Error("Claude Vision error: " + res.status);
+    const data = await res.json();
+    return (data.content?.[0]?.text || "").trim();
+  }, []);
 
   useEffect(()=>{ const on=()=>setIsOnline(true),off=()=>setIsOnline(false); window.addEventListener("online",on); window.addEventListener("offline",off); return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);}; },[]);
-  // Warm-up Tesseract 2 detik setelah app load → foto langsung cepat
-  useEffect(()=>{ const t=setTimeout(()=>getTesseract().catch(()=>{}),2000); return()=>clearTimeout(t); },[getTesseract]);
   // Warm up cache with common cross-language pairs on mount
   useEffect(()=>{
     warmTranslateCache([
@@ -961,19 +920,15 @@ export default function App() {
 
   const handlePhoto = e => {
     const file = e.target.files[0]; if (!file) return;
+    const mimeType = file.type || "image/jpeg";
     const reader = new FileReader();
     reader.onload = async ev => {
       const url = ev.target.result;
       setPhotoImg(url); setPhotoProc(true); setPhotoResult(null);
       try {
-        setPhotoResult({ original: "⚡ Memproses gambar...", translated: "" });
-        // Preprocess: fix kontras + handle teks putih
-        const processed = await preprocessImage(url);
-        setPhotoResult({ original: "🔍 Membaca teks...", translated: "" });
-        // Pakai worker yang sudah siap (tidak dibuat ulang)
-        const worker = await getTesseract();
-        const { data } = await worker.recognize(processed);
-        const rawText = data.text.trim().replace(/\n{3,}/g, "\n\n");
+        setPhotoResult({ original: "🔍 Membaca teks dengan Claude AI...", translated: "" });
+        // Claude Vision AI OCR — akurat untuk teks berwarna, kecil, apapun
+        const rawText = await claudeOCR(url, mimeType);
         if (!rawText || rawText.length < 2) {
           setPhotoResult({ original: "Tidak ada teks terdeteksi.", translated: "No text found." }); return;
         }
