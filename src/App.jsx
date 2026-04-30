@@ -860,7 +860,71 @@ export default function App() {
   const fileRef = useRef(null);
   const feedEnd = useRef(null);
 
+  // ── Tesseract persistent worker (dibuat sekali, reused) ──
+  const tWorkerRef = useRef(null);
+  const tLoadingRef = useRef(false);
+  const tReadyRef = useRef(false);
+
+  const getTesseract = useCallback(() => new Promise((res, rej) => {
+    if (tReadyRef.current && tWorkerRef.current) { res(tWorkerRef.current); return; }
+    if (tLoadingRef.current) {
+      const iv = setInterval(() => {
+        if (tReadyRef.current && tWorkerRef.current) { clearInterval(iv); res(tWorkerRef.current); }
+      }, 100);
+      return;
+    }
+    tLoadingRef.current = true;
+    const init = async () => {
+      try {
+        if (!window.Tesseract) {
+          await new Promise((r, e) => {
+            const s = document.createElement("script");
+            s.src = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js";
+            s.onload = r; s.onerror = () => e(new Error("Load gagal")); document.head.appendChild(s);
+          });
+        }
+        const T = window.Tesseract;
+        const w = await T.createWorker("eng+ind+chi_sim+jpn+kor+ara+fra+deu+rus+tha+vie+por+spa", 1, {
+          workerPath: "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/worker.min.js",
+          corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.0/tesseract-core-simd-lstm.wasm.js",
+        });
+        await w.setParameters({ tessedit_ocr_engine_mode: "1" });
+        tWorkerRef.current = w; tReadyRef.current = true; tLoadingRef.current = false;
+        res(w);
+      } catch(e) { tLoadingRef.current = false; rej(e); }
+    };
+    init();
+  }), []);
+
+  // ── Canvas preprocessing: fix white-on-dark, boost contrast ──
+  const preprocessImage = useCallback((dataUrl) => new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const ctx = c.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const id = ctx.getImageData(0, 0, c.width, c.height);
+      const d = id.data;
+      const sampleBrightness = (x, y) => { const i = (y * c.width + x) * 4; return d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114; };
+      const pts = [[0,0],[c.width/2,0],[c.width-1,0],[0,c.height/2],[c.width/2,c.height/2],[c.width-1,c.height/2],[0,c.height-1],[c.width/2,c.height-1],[c.width-1,c.height-1]];
+      const avgBg = pts.reduce((s,[x,y]) => s + sampleBrightness(Math.floor(x), Math.floor(y)), 0) / pts.length;
+      const isDark = avgBg < 128;
+      for (let i = 0; i < d.length; i += 4) {
+        let g = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
+        g = Math.min(255, Math.max(0, (g - 128) * 2.5 + 128));
+        if (isDark) g = 255 - g;
+        d[i] = d[i+1] = d[i+2] = g;
+      }
+      ctx.putImageData(id, 0, 0);
+      res(c.toDataURL("image/png"));
+    };
+    img.src = dataUrl;
+  }), []);
+
   useEffect(()=>{ const on=()=>setIsOnline(true),off=()=>setIsOnline(false); window.addEventListener("online",on); window.addEventListener("offline",off); return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);}; },[]);
+  // Warm-up Tesseract 2 detik setelah app load → foto langsung cepat
+  useEffect(()=>{ const t=setTimeout(()=>getTesseract().catch(()=>{}),2000); return()=>clearTimeout(t); },[getTesseract]);
   // Warm up cache with common cross-language pairs on mount
   useEffect(()=>{
     warmTranslateCache([
@@ -894,86 +958,6 @@ export default function App() {
     r.onend=()=>setListening(null); r.onerror=ev=>{setListening(null);showErr(ev.error==="not-allowed"?"Izin mikrofon ditolak.":"Gagal tangkap suara.");};
     r.start();
   };
-
-  // ── Tesseract persistent worker (dibuat sekali, reused) ──
-  const tWorkerRef = useRef(null);
-  const tLoadingRef = useRef(false);
-  const tReadyRef = useRef(false);
-
-  const getTesseract = useCallback(() => new Promise((res, rej) => {
-    if (tReadyRef.current && tWorkerRef.current) { res(tWorkerRef.current); return; }
-    if (tLoadingRef.current) {
-      // Tunggu sampai ready
-      const iv = setInterval(() => {
-        if (tReadyRef.current && tWorkerRef.current) { clearInterval(iv); res(tWorkerRef.current); }
-      }, 100);
-      return;
-    }
-    tLoadingRef.current = true;
-    const init = async () => {
-      try {
-        if (!window.Tesseract) {
-          await new Promise((r, e) => {
-            const s = document.createElement("script");
-            s.src = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js";
-            s.onload = r; s.onerror = () => e(new Error("Load gagal")); document.head.appendChild(s);
-          });
-        }
-        const T = window.Tesseract;
-        const w = await T.createWorker("eng+ind+chi_sim+jpn+kor+ara+fra+deu+rus+tha+vie+por+spa", 1, {
-          workerPath: "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/worker.min.js",
-          corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.0/tesseract-core-simd-lstm.wasm.js",
-        });
-        await w.setParameters({ tessedit_ocr_engine_mode: "1" }); // LSTM only = faster
-        tWorkerRef.current = w;
-        tReadyRef.current = true;
-        tLoadingRef.current = false;
-        res(w);
-      } catch(e) { tLoadingRef.current = false; rej(e); }
-    };
-    init();
-  }), []);
-
-  // ── Warm-up Tesseract 2 detik setelah app load (HARUS di sini, setelah getTesseract dideklarasikan) ──
-  useEffect(()=>{ const t=setTimeout(()=>getTesseract().catch(()=>{}),2000); return()=>clearTimeout(t); },[getTesseract]);
-
-  // ── Canvas preprocessing: fix white-on-dark, boost contrast ──
-  const preprocessImage = useCallback((dataUrl) => new Promise(res => {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement("canvas");
-      c.width = img.naturalWidth; c.height = img.naturalHeight;
-      const ctx = c.getContext("2d");
-      ctx.drawImage(img, 0, 0);
-      const id = ctx.getImageData(0, 0, c.width, c.height);
-      const d = id.data;
-
-      // Sample brightness dari 9 titik untuk deteksi background
-      const sampleBrightness = (x, y) => {
-        const i = (y * c.width + x) * 4;
-        return (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
-      };
-      const pts = [
-        [0,0],[c.width/2,0],[c.width-1,0],
-        [0,c.height/2],[c.width/2,c.height/2],[c.width-1,c.height/2],
-        [0,c.height-1],[c.width/2,c.height-1],[c.width-1,c.height-1]
-      ];
-      const avgBg = pts.reduce((s,[x,y]) => s + sampleBrightness(Math.floor(x), Math.floor(y)), 0) / pts.length;
-      const isDark = avgBg < 128; // background gelap → teks putih
-
-      // Grayscale + boost contrast + invert jika perlu
-      for (let i = 0; i < d.length; i += 4) {
-        let g = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
-        // Boost contrast (factor 2.5)
-        g = Math.min(255, Math.max(0, (g - 128) * 2.5 + 128));
-        if (isDark) g = 255 - g; // invert: teks putih jadi hitam
-        d[i] = d[i+1] = d[i+2] = g;
-      }
-      ctx.putImageData(id, 0, 0);
-      res(c.toDataURL("image/png"));
-    };
-    img.src = dataUrl;
-  }), []);
 
   const handlePhoto = e => {
     const file = e.target.files[0]; if (!file) return;
