@@ -860,28 +860,117 @@ export default function App() {
   const fileRef = useRef(null);
   const feedEnd = useRef(null);
 
-  // ── Claude Vision OCR ──
-  const claudeOCR = useCallback(async (dataUrl, mimeType) => {
-    const base64Data = dataUrl.split(",")[1];
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1000,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: mimeType, data: base64Data } },
-            { type: "text", text: "Extract all text from this image exactly as it appears, including colored text, small text, and text of any color or style. Output only the raw text content with no explanations or formatting." }
-          ]
-        }]
-      })
+  // ── Compress + resize gambar sebelum dikirim (maks 1024px, JPEG 85%) ──
+  const compressImage = useCallback((dataUrl, maxPx = 1024, quality = 0.85) => new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > maxPx || h > maxPx) {
+        if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      res(c.toDataURL("image/jpeg", quality));
+    };
+    img.src = dataUrl;
+  }), []);
+
+  // ── Claude Vision OCR — streaming, compress otomatis, retry ──
+  const claudeOCR = useCallback(async (dataUrl, onProgress) => {
+    // Step 1: compress supaya payload kecil
+    onProgress?.("🗜️ Kompres gambar...");
+    const compressed = await compressImage(dataUrl, 1024, 0.85);
+    const b64 = compressed.split(",")[1];
+
+    onProgress?.("👁️ Claude Vision membaca teks...");
+
+    // Step 2: streaming call ke Claude Vision
+    const body = JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1500,
+      stream: true,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64 } },
+          { type: "text", text: `Baca SEMUA teks di gambar ini dengan sangat teliti.
+Termasuk:
+- Teks berwarna (merah, pink, putih, dsb)
+- Teks kecil (nama penulis, caption, dsb)
+- Teks tebal maupun tipis
+- Teks di latar apapun
+
+Output: hanya teks mentah apa adanya, tanpa penjelasan.` }
+        ]
+      }]
     });
-    if (!res.ok) throw new Error("Claude Vision error: " + res.status);
-    const data = await res.json();
-    return (data.content?.[0]?.text || "").trim();
-  }, []);
+
+    let result = "";
+    let lastErr = null;
+
+    // Coba streaming dulu
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      if (!res.body) throw new Error("no body");
+
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n"); buf = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+          const raw = line.slice(5).trim();
+          if (raw === "[DONE]") break;
+          try {
+            const j = JSON.parse(raw);
+            if (j.type === "content_block_delta" && j.delta?.type === "text_delta") {
+              result += j.delta.text || "";
+              onProgress?.("📝 " + result.slice(0, 60) + (result.length > 60 ? "…" : ""));
+            }
+          } catch {}
+        }
+      }
+      return result.trim();
+    } catch (e) {
+      lastErr = e;
+    }
+
+    // Fallback: non-streaming (plain JSON)
+    try {
+      onProgress?.("🔄 Coba ulang...");
+      const res2 = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1500,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64 } },
+              { type: "text", text: "Tulis ulang SEMUA teks di gambar ini, termasuk teks berwarna dan teks kecil. Output: teks saja, tanpa komentar." }
+            ]
+          }]
+        })
+      });
+      if (!res2.ok) throw new Error("HTTP " + res2.status + " – " + (await res2.text().catch(() => "")));
+      const d2 = await res2.json();
+      return (d2.content?.[0]?.text || "").trim();
+    } catch (e2) {
+      throw new Error((lastErr?.message || "") + " | " + (e2?.message || String(e2)));
+    }
+  }, [compressImage]);
 
   useEffect(()=>{ const on=()=>setIsOnline(true),off=()=>setIsOnline(false); window.addEventListener("online",on); window.addEventListener("offline",off); return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);}; },[]);
   // Warm up cache with common cross-language pairs on mount
@@ -920,15 +1009,14 @@ export default function App() {
 
   const handlePhoto = e => {
     const file = e.target.files[0]; if (!file) return;
-    const mimeType = file.type || "image/jpeg";
     const reader = new FileReader();
     reader.onload = async ev => {
       const url = ev.target.result;
       setPhotoImg(url); setPhotoProc(true); setPhotoResult(null);
       try {
-        setPhotoResult({ original: "🔍 Membaca teks dengan Claude AI...", translated: "" });
-        // Claude Vision AI OCR — akurat untuk teks berwarna, kecil, apapun
-        const rawText = await claudeOCR(url, mimeType);
+        setPhotoResult({ original: "🔍 Memulai Claude Vision...", translated: "" });
+        const onProgress = msg => setPhotoResult(p => ({ ...p, original: msg }));
+        const rawText = await claudeOCR(url, onProgress);
         if (!rawText || rawText.length < 2) {
           setPhotoResult({ original: "Tidak ada teks terdeteksi.", translated: "No text found." }); return;
         }
