@@ -860,117 +860,116 @@ export default function App() {
   const fileRef = useRef(null);
   const feedEnd = useRef(null);
 
-  // ── Compress + resize gambar sebelum dikirim (maks 1024px, JPEG 85%) ──
-  const compressImage = useCallback((dataUrl, maxPx = 1024, quality = 0.85) => new Promise(res => {
+  // ── Smart color-aware OCR preprocessing ──
+  // Kunci: teks merah di bg pink → di green channel jadi GELAP & kontras tinggi
+  const buildOCRVariants = useCallback((dataUrl) => new Promise(res => {
     const img = new Image();
     img.onload = () => {
-      let w = img.naturalWidth, h = img.naturalHeight;
-      if (w > maxPx || h > maxPx) {
-        if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
-        else { w = Math.round(w * maxPx / h); h = maxPx; }
+      // Upscale 2x supaya teks kecil ("Steve Jobs") terbaca
+      const SCALE = 2;
+      const W = img.naturalWidth * SCALE, H = img.naturalHeight * SCALE;
+
+      const makeCanvas = () => { const c = document.createElement("canvas"); c.width = W; c.height = H; return c; };
+
+      // Helper: draw image & get pixels
+      const getRaw = () => {
+        const c = makeCanvas(), ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0, W, H);
+        return ctx.getImageData(0, 0, W, H);
+      };
+
+      const raw = getRaw();
+      const d = raw.data;
+
+      // Variant A — Green channel only (teks merah → gelap, bg pink → abu terang)
+      const vA = makeCanvas(), ctxA = vA.getContext("2d");
+      const idA = ctxA.createImageData(W, H);
+      for (let i = 0; i < d.length; i += 4) {
+        const g = d[i + 1]; // ambil green channel
+        idA.data[i] = idA.data[i+1] = idA.data[i+2] = g; idA.data[i+3] = 255;
       }
-      const c = document.createElement("canvas");
-      c.width = w; c.height = h;
-      c.getContext("2d").drawImage(img, 0, 0, w, h);
-      res(c.toDataURL("image/jpeg", quality));
+      ctxA.putImageData(idA, 0, 0);
+
+      // Variant B — Saturation boost + grayscale standard (teks gelap biasa)
+      const vB = makeCanvas(), ctxB = vB.getContext("2d");
+      const idB = ctxB.createImageData(W, H);
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i+1], b = d[i+2];
+        // Boost saturation: jauhkan warna dari gray
+        const avg = (r + g + b) / 3;
+        const SAT = 2.0;
+        const nr = Math.min(255, avg + (r - avg) * SAT);
+        const ng = Math.min(255, avg + (g - avg) * SAT);
+        const nb = Math.min(255, avg + (b - avg) * SAT);
+        const lum = nr * 0.299 + ng * 0.587 + nb * 0.114;
+        // Tingkatkan kontras
+        const v = Math.min(255, Math.max(0, (lum - 128) * 2.2 + 128));
+        idB.data[i] = idB.data[i+1] = idB.data[i+2] = v; idB.data[i+3] = 255;
+      }
+      ctxB.putImageData(idB, 0, 0);
+
+      // Variant C — Inverted green (teks merah → terang di atas gelap → lalu invert)
+      const vC = makeCanvas(), ctxC = vC.getContext("2d");
+      const idC = ctxC.createImageData(W, H);
+      for (let i = 0; i < d.length; i += 4) {
+        const v = 255 - d[i + 1];
+        idC.data[i] = idC.data[i+1] = idC.data[i+2] = v; idC.data[i+3] = 255;
+      }
+      ctxC.putImageData(idC, 0, 0);
+
+      res([vA.toDataURL(), vB.toDataURL(), vC.toDataURL()]);
     };
     img.src = dataUrl;
   }), []);
 
-  // ── Claude Vision OCR — streaming, compress otomatis, retry ──
-  const claudeOCR = useCallback(async (dataUrl, onProgress) => {
-    // Step 1: compress supaya payload kecil
-    onProgress?.("🗜️ Kompres gambar...");
-    const compressed = await compressImage(dataUrl, 1024, 0.85);
-    const b64 = compressed.split(",")[1];
-
-    onProgress?.("👁️ Claude Vision membaca teks...");
-
-    // Step 2: streaming call ke Claude Vision
-    const body = JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1500,
-      stream: true,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64 } },
-          { type: "text", text: `Baca SEMUA teks di gambar ini dengan sangat teliti.
-Termasuk:
-- Teks berwarna (merah, pink, putih, dsb)
-- Teks kecil (nama penulis, caption, dsb)
-- Teks tebal maupun tipis
-- Teks di latar apapun
-
-Output: hanya teks mentah apa adanya, tanpa penjelasan.` }
-        ]
-      }]
-    });
-
-    let result = "";
-    let lastErr = null;
-
-    // Coba streaming dulu
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body
-      });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      if (!res.body) throw new Error("no body");
-
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split("\n"); buf = lines.pop() || "";
-        for (const line of lines) {
-          if (!line.startsWith("data:")) continue;
-          const raw = line.slice(5).trim();
-          if (raw === "[DONE]") break;
-          try {
-            const j = JSON.parse(raw);
-            if (j.type === "content_block_delta" && j.delta?.type === "text_delta") {
-              result += j.delta.text || "";
-              onProgress?.("📝 " + result.slice(0, 60) + (result.length > 60 ? "…" : ""));
-            }
-          } catch {}
+  // ── Load Tesseract worker (persistent, hanya sekali) ──
+  const tWorkerRef = useRef(null);
+  const getTesseract = useCallback(() => new Promise((res, rej) => {
+    if (tWorkerRef.current) { res(tWorkerRef.current); return; }
+    const init = async () => {
+      try {
+        if (!window.Tesseract) {
+          await new Promise((r, e) => {
+            const s = document.createElement("script");
+            s.src = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js";
+            s.onload = r; s.onerror = () => e(new Error("CDN gagal")); document.head.appendChild(s);
+          });
         }
-      }
-      return result.trim();
-    } catch (e) {
-      lastErr = e;
+        const w = await window.Tesseract.createWorker("eng", 1, {
+          workerPath: "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/worker.min.js",
+          corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.0/tesseract-core-simd-lstm.wasm.js",
+        });
+        await w.setParameters({ tessedit_ocr_engine_mode: "1", preserve_interword_spaces: "1" });
+        tWorkerRef.current = w; res(w);
+      } catch(e) { rej(e); }
+    };
+    init();
+  }), []);
+
+  // ── Multi-pass OCR: jalankan 3 variant, pilih hasil terpanjang ──
+  const claudeOCR = useCallback(async (dataUrl, onProgress) => {
+    onProgress?.("⚙️ Menyiapkan engine OCR...");
+    const [worker, variants] = await Promise.all([getTesseract(), buildOCRVariants(dataUrl)]);
+
+    const labels = ["🟢 Green channel (teks merah)", "🔲 Contrast boost", "🔄 Inverted green"];
+    const results = [];
+
+    for (let i = 0; i < variants.length; i++) {
+      onProgress?.(`${labels[i]}...`);
+      try {
+        const { data } = await worker.recognize(variants[i]);
+        const t = data.text.replace(/\n{3,}/g, "\n\n").trim();
+        results.push({ text: t, confidence: data.confidence, words: t.split(/\s+/).filter(Boolean).length });
+      } catch { results.push({ text: "", confidence: 0, words: 0 }); }
     }
 
-    // Fallback: non-streaming (plain JSON)
-    try {
-      onProgress?.("🔄 Coba ulang...");
-      const res2 = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 1500,
-          messages: [{
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64 } },
-              { type: "text", text: "Tulis ulang SEMUA teks di gambar ini, termasuk teks berwarna dan teks kecil. Output: teks saja, tanpa komentar." }
-            ]
-          }]
-        })
-      });
-      if (!res2.ok) throw new Error("HTTP " + res2.status + " – " + (await res2.text().catch(() => "")));
-      const d2 = await res2.json();
-      return (d2.content?.[0]?.text || "").trim();
-    } catch (e2) {
-      throw new Error((lastErr?.message || "") + " | " + (e2?.message || String(e2)));
-    }
-  }, [compressImage]);
+    // Pilih hasil: prioritas confidence tertinggi, tiebreak kata terbanyak
+    results.sort((a, b) => b.confidence - a.confidence || b.words - a.words);
+    const best = results[0]?.text || "";
+
+    if (!best || best.length < 2) throw new Error("Tidak ada teks terdeteksi di semua pass");
+    return best;
+  }, [getTesseract, buildOCRVariants]);
 
   useEffect(()=>{ const on=()=>setIsOnline(true),off=()=>setIsOnline(false); window.addEventListener("online",on); window.addEventListener("offline",off); return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);}; },[]);
   // Warm up cache with common cross-language pairs on mount
