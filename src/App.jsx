@@ -7,40 +7,36 @@ import {
 } from "lucide-react";
 
 // ══════════════════════════════════════════════════════════════
-// KONFIGURASI API
+// KONFIGURASI BAHASA
 // ══════════════════════════════════════════════════════════════
-// PENTING: Ganti string di bawah ini dengan API Key Anthropic Anda.
-// Dapatkan di: https://console.anthropic.com/
-const ANTHROPIC_API_KEY = "ISI_DENGAN_API_KEY_ANDA"; 
-
 const LANGS = [
-  { code: "id", name: "Indonesia", flag: "🇮🇩", speech: "id-ID" },
-  { code: "en", name: "English",   flag: "🇺🇸", speech: "en-US" },
-  { code: "ja", name: "日本語",     flag: "🇯🇵", speech: "ja-JP" },
-  { code: "ko", name: "한국어",     flag: "🇰🇷", speech: "ko-KR" },
-  { code: "zh-CN", name: "中文简体",flag: "🇨🇳", speech: "zh-CN" },
-  { code: "zh-TW", name: "中文繁體",flag: "🇹🇼", speech: "zh-TW" },
-  { code: "es", name: "Español",   flag: "🇪🇸", speech: "es-ES" },
-  { code: "fr", name: "Français",  flag: "🇫🇷", speech: "fr-FR" },
-  { code: "de", name: "Deutsch",   flag: "🇩🇪", speech: "de-DE" },
-  { code: "ar", name: "العربية",   flag: "🇸🇦", speech: "ar-SA" },
-  { code: "pt", name: "Português", flag: "🇧🇷", speech: "pt-BR" },
-  { code: "ru", name: "Русский",   flag: "🇷🇺", speech: "ru-RU" },
-  { code: "th", name: "ภาษาไทย",   flag: "🇹🇭", speech: "th-TH" },
-  { code: "vi", name: "Tiếng Việt",flag: "🇻🇳", speech: "vi-VN" },
-  { code: "hi", name: "हिन्दी",    flag: "🇮🇳", speech: "hi-IN" },
-  { code: "ms", name: "Melayu",    flag: "🇲🇾", speech: "ms-MY" },
-  { code: "tr", name: "Türkçe",    flag: "🇹🇷", speech: "tr-TR" },
-  { code: "it", name: "Italiano",  flag: "🇮🇹", speech: "it-IT" },
-  { code: "nl", name: "Nederlands",flag: "🇳🇱", speech: "nl-NL" },
-  { code: "pl", name: "Polski",    flag: "🇵🇱", speech: "pl-PL" },
-  { code: "sv", name: "Svenska",   flag: "🇸🇪", speech: "sv-SE" },
-  { code: "fil",name: "Filipino",  flag: "🇵🇭", speech: "fil-PH" },
-  { code: "uk", name: "Українська",flag: "🇺🇦", speech: "uk-UA" },
+  { code: "id", name: "Indonesia", flag: "🇮🇩", speech: "id-ID", tess: "ind" },
+  { code: "en", name: "English",   flag: "🇺🇸", speech: "en-US", tess: "eng" },
+  { code: "ja", name: "日本語",     flag: "🇯🇵", speech: "ja-JP", tess: "jpn" },
+  { code: "ko", name: "한국어",     flag: "🇰🇷", speech: "ko-KR", tess: "kor" },
+  { code: "zh-CN", name: "中文简体",flag: "🇨🇳", speech: "zh-CN", tess: "chi_sim" },
+  { code: "zh-TW", name: "中文繁體",flag: "🇹🇼", speech: "zh-TW", tess: "chi_tra" },
+  { code: "es", name: "Español",   flag: "🇪🇸", speech: "es-ES", tess: "spa" },
+  { code: "fr", name: "Français",  flag: "🇫🇷", speech: "fr-FR", tess: "fra" },
+  { code: "de", name: "Deutsch",   flag: "🇩🇪", speech: "de-DE", tess: "deu" },
+  { code: "ar", name: "العربية",   flag: "🇸🇦", speech: "ar-SA", tess: "ara" },
+  { code: "pt", name: "Português", flag: "🇧🇷", speech: "pt-BR", tess: "por" },
+  { code: "ru", name: "Русский",   flag: "🇷🇺", speech: "ru-RU", tess: "rus" },
+  { code: "th", name: "ภาษาไทย",   flag: "🇹🇭", speech: "th-TH", tess: "tha" },
+  { code: "vi", name: "Tiếng Việt",flag: "🇻🇳", speech: "vi-VN", tess: "vie" },
+  { code: "hi", name: "हिन्दी",    flag: "🇮🇳", speech: "hi-IN", tess: "hin" },
+  { code: "ms", name: "Melayu",    flag: "🇲🇾", speech: "ms-MY", tess: "msa" },
+  { code: "tr", name: "Türkçe",    flag: "🇹🇷", speech: "tr-TR", tess: "tur" },
+  { code: "it", name: "Italiano",  flag: "🇮🇹", speech: "it-IT", tess: "ita" },
+  { code: "nl", name: "Nederlands",flag: "🇳🇱", speech: "nl-NL", tess: "nld" },
+  { code: "pl", name: "Polski",    flag: "🇵🇱", speech: "pl-PL", tess: "pol" },
+  { code: "sv", name: "Svenska",   flag: "🇸🇪", speech: "sv-SE", tess: "swe" },
+  { code: "fil",name: "Filipino",  flag: "🇵🇭", speech: "fil-PH", tess: "fil" },
+  { code: "uk", name: "Українська",flag: "🇺🇦", speech: "uk-UA", tess: "ukr" },
 ];
 
 // ══════════════════════════════════════════════════════════════
-//  TURBO TRANSLATION ENGINE — cache + dedup + abort + fallback
+//  TURBO TRANSLATION ENGINE (Gratis: Google + MyMemory)
 // ══════════════════════════════════════════════════════════════
 
 const _tCache = new Map();
@@ -49,7 +45,6 @@ function _cacheSet(k, v) {
   if (_tCache.size >= _MAX_CACHE) _tCache.delete(_tCache.keys().next().value);
   _tCache.set(k, v);
 }
-
 const _inflight = new Map();
 
 async function fastTranslate(text, src, tgt, signal) {
@@ -94,6 +89,9 @@ function warmTranslateCache(pairs) {
   pairs.forEach(([text, src, tgt]) => fastTranslate(text, src, tgt).catch(() => {}));
 }
 
+// ══════════════════════════════════════════════════════════════
+//  CSS STYLES
+// ══════════════════════════════════════════════════════════════
 const css = `
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -167,7 +165,6 @@ button{cursor:pointer;font-family:inherit}
 .tpill div{background:#1c0505;border:1px solid #7f1d1d;border-radius:20px;padding:6px 16px;font-size:12px;color:#f87171;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .err{margin:0 12px 6px;background:rgba(127,29,29,.4);border:1px solid #7f1d1d;color:#fca5a5;font-size:12px;padding:8px 12px;border-radius:10px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;line-height:1.5}
-.warn{background:rgba(146,64,14,.15);border:1px solid rgba(245,158,11,.3);color:#fde68a;font-size:11px;padding:8px 10px;border-radius:10px;display:flex;align-items:flex-start;gap:7px;line-height:1.5}
 .actions{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid rgba(245,158,11,.2);background:linear-gradient(180deg,#1c0505,#130000)}
 .mic-btn{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 18px;border-radius:14px;border:2px solid;background:none;font-family:inherit;position:relative;transition:all .2s}
 .mic-btn:disabled{opacity:.35;cursor:not-allowed}
@@ -278,72 +275,31 @@ button{cursor:pointer;font-family:inherit}
 function leven(a,b){const m=a.length,n=b.length,dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
 function simScore(t,h){const a=t.toLowerCase().replace(/[^\w\s\u3000-\u9FFF\uAC00-\uD7AF\u0400-\u04FF\u0600-\u06FF]/g,"").trim(),b=h.toLowerCase().replace(/[^\w\s\u3000-\u9FFF\uAC00-\uD7AF\u0400-\u04FF\u0600-\u06FF]/g,"").trim();if(!a||!b)return 0;return Math.max(0,Math.round((1-leven(a,b)/Math.max(a.length,b.length))*100));}
 
-// ── LearnPanel ──
+// ══════════════════════════════════════════════════════════════
+//  TESSERACT OCR LOADER (Gratis, berjalan di browser)
+// ══════════════════════════════════════════════════════════════
+// Memastikan Tesseract tersedia secara global. 
+// Jika tidak ada, kita load dari CDN.
+const loadTesseract = async () => {
+  if (window.Tesseract) return window.Tesseract;
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    script.onload = () => resolve(window.Tesseract);
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
+};
+
+// ── LearnPanel (Gratis: Text-to-Speech + Speech Recognition) ──
 function LearnPanel({ text, langName, speechCode, flag }) {
   const [speed, setSpeed] = useState(0.8);
   const [playing, setPlaying] = useState(false);
-  const [phonetic, setPhonetic] = useState("");
-  const [phLoad, setPhLoad] = useState(false);
   const [pracRec, setPracRec] = useState(false);
   const [score, setScore] = useState(null);
   const [heard, setHeard] = useState("");
   const pracRef = useRef(null);
 
-  useEffect(() => { loadPhonetic(); }, []);
-  
-  const loadPhonetic = async () => {
-    if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === "ISI_DENGAN_API_KEY_ANDA") {
-        setPhonetic("Harap masukkan API Key yang valid di bagian atas kode.");
-        return;
-    }
-    setPhLoad(true);
-    setPhonetic(""); 
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", { 
-          method:"POST", 
-          headers:{
-              "Content-Type":"application/json",
-              "x-api-key": ANTHROPIC_API_KEY,
-              "anthropic-version": "2023-06-01"
-          },
-          body: JSON.stringify({ 
-              model:"claude-3-haiku-20240307", // Using a stable model name
-              max_tokens:300,
-              stream: true,
-              messages:[{ role:"user", content:`Panduan pengucapan singkat untuk ${langName}: "${text}"\n1. IPA:[...]\n2. Baca:[bunyi Indonesia]\n3. Tips:[1 tips]\nSingkat saja.` }]
-          })
-      });
-      if(!res.ok||!res.body) throw new Error("Stream error " + res.status);
-      
-      const reader=res.body.getReader(); 
-      const dec=new TextDecoder(); 
-      let buf="";
-      
-      while(true){
-        const {done,value}=await reader.read(); 
-        if(done) break;
-        buf+=dec.decode(value,{stream:true});
-        const lines=buf.split("\n"); 
-        buf=lines.pop()||"";
-        for(const line of lines){
-          if(!line.startsWith("data:")) continue;
-          const data=line.slice(5).trim(); 
-          if(data==="[DONE]") break;
-          try{
-            const j=JSON.parse(data);
-            if(j.type==="content_block_delta"&&j.delta?.type==="text_delta"){
-              setPhonetic(p=>p+(j.delta.text||""));
-            }
-          }catch{}
-        }
-      }
-    } catch (e) { 
-        console.error(e);
-        setPhonetic("Gagal memuat panduan. Periksa API Key & koneksi."); 
-    }
-    finally { setPhLoad(false); }
-  };
-  
   const playAudio = () => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -351,35 +307,36 @@ function LearnPanel({ text, langName, speechCode, flag }) {
     u.onstart=()=>setPlaying(true); u.onend=()=>setPlaying(false); u.onerror=()=>setPlaying(false);
     window.speechSynthesis.speak(u);
   };
-  
+
   const startPrac = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("Gunakan Chrome/Edge."); return; }
+    if (!SR) { alert("Gunakan Chrome/Edge untuk fitur praktik."); return; }
     const r = new SR(); pracRef.current=r; r.lang=speechCode; r.interimResults=false;
     setPracRec(true); setScore(null);
     r.onresult=e=>{const h=e.results[0][0].transcript;setHeard(h);setScore(simScore(text,h));setPracRec(false);};
     r.onend=()=>setPracRec(false); r.onerror=()=>setPracRec(false); r.start();
   };
-  
+
   const sc=s=>s>=80?"#4ade80":s>=50?"#facc15":"#f87171";
   const fb=s=>s>=80?{l:"Sempurna! 🎉",c:"g"}:s>=50?{l:"Hampir! Coba lagi 👍",c:"y"}:{l:"Terus berlatih! 💪",c:"r"};
-  
+
   return (
     <div className="lpanel">
       <div className="lp-title">📖 Pelajari Pengucapan {flag}</div>
+      
+      {/* AI Phonetics dihapus karena butuh API berbayar, diganti dengan TTS & Praktik */}
+      
       <div className="speed-row">
         <span>Kecepatan:</span>
         <input type="range" min="0.3" max="1.2" step="0.1" value={speed} onChange={e=>setSpeed(parseFloat(e.target.value))} style={{flex:1,accentColor:"#22d3ee"}}/>
         <span style={{color:"#fca5a5",minWidth:52}}>{speed<=0.5?"🐢 Pelan":speed>=1.1?"⚡ Cepat":"▶ Normal"}</span>
       </div>
       <button className={`play-btn ${playing?"going":""}`} onClick={playAudio}><Volume2 size={15}/>{playing?"Sedang diputar...":"Dengarkan Pengucapan"}</button>
-      <div className="phonetic-box">
-        <div className="ph-lbl">PANDUAN PENGUCAPAN AI</div>
-        {phLoad?<div className="ph-load">Menganalisis...</div>:<div className="ph-text">{phonetic}</div>}
-      </div>
+      
       <button className={`prac-btn ${pracRec?"going":""}`} onClick={pracRec?()=>{pracRef.current?.stop();setPracRec(false);}:startPrac}>
         {pracRec?<><MicOff size={16}/>Berhenti Merekam...</>:<><Mic size={16}/>Coba Ucapkan Sekarang</>}
       </button>
+      
       {score!==null&&(
         <div className="score-box">
           <div className="score-row"><span className="score-lbl">Skor Kemiripan</span><span className="score-num" style={{color:sc(score)}}>{score}%</span></div>
@@ -393,7 +350,7 @@ function LearnPanel({ text, langName, speechCode, flag }) {
   );
 }
 
-// ── ComicCanvas – renders translated bubbles on canvas + download ──
+// ── ComicCanvas ──
 function wrapCanvasText(ctx, text, cx, cy, maxW, lineH) {
   const hasSpc = /\s/.test(text);
   const tokens = hasSpc ? text.split(/\s+/) : Array.from(text);
@@ -468,71 +425,79 @@ function ComicCanvas({ imgSrc, bubbles, pageNum }) {
   );
 }
 
-// ── DocumentTab – Turbo komik / buku / surat translator ──
+// ── DocumentTab (Gratis: Tesseract.js) ──
 function DocumentTab() {
   const [mode, setMode] = useState("komik");
   const [tgtLang, setTgtLang] = useState(LANGS[0]);
   const [pages, setPages] = useState([]);
   const [processing, setProcessing] = useState(false);
+  const [tessLoaded, setTessLoaded] = useState(false);
   const fileRef = useRef(null);
   const resultsEnd = useRef(null);
 
-  const COMIC_PROMPT = `Analyze this comic page carefully. Detect ALL text areas: speech bubbles, thought bubbles, caption boxes, narration boxes, sound effects.
-For each text area return its bounding box as percentage of total image dimensions and the text inside.
-Return ONLY valid JSON (no markdown, no extra text):
-{"bubbles":[{"x":5,"y":3,"w":28,"h":12,"text":"Hello there"},{"x":55,"y":15,"w":30,"h":10,"text":"Hi!"}]}
-x,y = top-left corner as % of image width/height. w,h = width/height %. If no text found return: {"bubbles":[]}`;
-
   const MODES = {
-    komik: { icon: "🎭", label: "Komik", hint: "Upload halaman komik (bisa banyak sekaligus)", multi: true },
-    buku: { icon: "📚", label: "Buku", hint: "Upload foto halaman buku atau dokumen panjang", multi: true, prompt: "Extract ALL visible text from this book page in reading order. Include paragraphs, headings, footnotes. Reply ONLY the raw text, nothing else. If no text, reply: NONE" },
-    surat: { icon: "📄", label: "Surat/Dokumen", hint: "Upload foto surat, kontrak, atau dokumen tunggal", multi: false, prompt: "Extract ALL visible text from this document/letter, preserving structure and formatting as much as possible. Reply ONLY the raw text, nothing else. If no text, reply: NONE" },
+    komik: { icon: "🎭", label: "Komik", hint: "Upload halaman komik (Tesseract OCR)", multi: true },
+    buku: { icon: "📚", label: "Buku", hint: "Upload foto halaman buku", multi: true },
+    surat: { icon: "📄", label: "Surat/Dokumen", hint: "Upload foto surat atau kontrak", multi: false },
   };
 
-  useEffect(() => { resultsEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [pages]);
+  useEffect(() => { 
+    resultsEnd.current?.scrollIntoView({ behavior: "smooth" }); 
+    // Coba load Tesseract saat tab dibuka
+    if (!tessLoaded) loadTesseract().then(() => setTessLoaded(true)).catch(e => console.error("Tesseract load failed", e));
+  }, [pages, tessLoaded]);
 
-  const processPage = async (id, b64, mimeType, tgt, isComic) => {
+  const processPage = async (id, imgSrc, tgt) => {
     const updatePage = (patch) => setPages(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
     updatePage({ status: "ocr" });
 
-    if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === "ISI_DENGAN_API_KEY_ANDA") {
-        updatePage({ status: "error", orig: "API Key tidak valid.", trans: "" });
-        return;
-    }
-
     try {
-      if (isComic) {
-        const ocrRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST", headers: { 
-              "Content-Type": "application/json",
-              "x-api-key": ANTHROPIC_API_KEY,
-              "anthropic-version": "2023-06-01"
-          },
-          body: JSON.stringify({
-            model: "claude-3-sonnet-20240229", // Good balance for vision
-            max_tokens: 1500,
-            messages: [{ role: "user", content: [
-              { type: "image", source: { type: "base64", media_type: mimeType, data: b64 } },
-              { type: "text", text: COMIC_PROMPT }
-            ]}]
-          })
+      if (!window.Tesseract) throw new Error("Tesseract belum dimuat. Pastikan koneksi internet stabil.");
+      
+      // Gunakan bahasa default 'eng' + 'ind' jika bisa, atau ambil dari tgt
+      // Untuk simplicitas, kita pakai 'eng+ind' untuk komik umum, atau user pilih?
+      // Kita biarkan Tesseract auto-detect atau default ke Inggris/Indo
+      const worker = await window.Tesseract.createWorker('eng+ind', 1, {
+        logger: m => console.log(m) // Log progress
+      });
+
+      const { data: { words, text } } = await worker.recognize(imgSrc);
+      await worker.terminate();
+
+      if (!text || text.trim().length < 2) {
+        updatePage({ orig: "Tidak ada teks", trans: "No text found", status: "done" }); return;
+      }
+
+      if (mode === "komik") {
+        // Buat bubble dari kata-kata yang terdeteksi
+        // Tesseract memberikan bounding box (bbox) per kata. Kita group saja sederhana per baris.
+        const lines = {};
+        words.forEach(w => {
+          // Simplify: group by vertical position (y)
+          const yKey = Math.floor(w.bbox.y0 / 20) * 20; // group within 20px
+          if (!lines[yKey]) lines[yKey] = { words: [], x0: Infinity, y0: Infinity, x1: 0, y1: 0, text: "" };
+          lines[yKey].words.push(w);
+          lines[yKey].text += w.text + " ";
+          lines[yKey].x0 = Math.min(lines[yKey].x0, w.bbox.x0);
+          lines[yKey].y0 = Math.min(lines[yKey].y0, w.bbox.y0);
+          lines[yKey].x1 = Math.max(lines[yKey].x1, w.bbox.x1);
+          lines[yKey].y1 = Math.max(lines[yKey].y1, w.bbox.y1);
         });
-        
-        if (!ocrRes.ok) {
-            const errData = await ocrRes.json();
-            throw new Error(errData.error?.message || "API Request Failed");
-        }
-        
-        const ocrData = await ocrRes.json();
-        let rawJson = (ocrData.content?.[0]?.text || "").trim().replace(/```json\s*|```/g, "").trim();
-        let parsed;
-        try { parsed = JSON.parse(rawJson); } catch {
-          updatePage({ bubbles: [], orig: "Gagal parse JSON", trans: "", status: "error" }); return;
-        }
-        const bubbles = (parsed.bubbles || []).filter(b => b.text?.trim());
-        if (!bubbles.length) {
-          updatePage({ bubbles: [], status: "done" }); return;
-        }
+
+        const img = new Image();
+        img.src = imgSrc;
+        await new Promise(res => img.onload = res);
+        const W = img.naturalWidth;
+        const H = img.naturalHeight;
+
+        const bubbles = Object.values(lines).map(line => ({
+          x: (line.x0 / W) * 100,
+          y: (line.y0 / H) * 100,
+          w: ((line.x1 - line.x0) / W) * 100,
+          h: ((line.y1 - line.y0) / H) * 100,
+          text: line.text.trim()
+        })).filter(b => b.w > 0 && b.h > 0);
+
         updatePage({ status: "translating", bubbles: bubbles.map(b => ({ ...b, translated: "" })) });
         
         const translations = await Promise.all(
@@ -540,38 +505,17 @@ x,y = top-left corner as % of image width/height. w,h = width/height %. If no te
         );
         const finalBubbles = bubbles.map((b, i) => ({ ...b, translated: translations[i] || b.text }));
         updatePage({ bubbles: finalBubbles, status: "done" });
+
       } else {
-        const prompt = MODES[mode]?.prompt || "";
-        const ocrRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST", headers: { 
-              "Content-Type": "application/json",
-              "x-api-key": ANTHROPIC_API_KEY,
-              "anthropic-version": "2023-06-01"
-          },
-          body: JSON.stringify({
-            model: "claude-3-sonnet-20240229",
-            max_tokens: 800,
-            messages: [{ role: "user", content: [
-              { type: "image", source: { type: "base64", media_type: mimeType, data: b64 } },
-              { type: "text", text: prompt }
-            ]}]
-          })
-        });
-        
-        if (!ocrRes.ok) throw new Error("API Error");
-        
-        const ocrData = await ocrRes.json();
-        const rawText = (ocrData.content?.[0]?.text || "").trim();
-        if (!rawText || rawText === "NONE") {
-          updatePage({ orig: "Tidak ada teks", trans: "No text found", status: "done" }); return;
-        }
-        updatePage({ orig: rawText, status: "translating" });
-        const translated = await fastTranslate(rawText, "auto", tgt.code);
-        updatePage({ orig: rawText, trans: translated || rawText, status: "done" });
+        // Buku/Surat mode
+        updatePage({ orig: text, status: "translating" });
+        const translated = await fastTranslate(text, "auto", tgt.code);
+        updatePage({ orig: text, trans: translated || text, status: "done" });
       }
+
     } catch (e) {
       console.error(e);
-      updatePage({ orig: "—", trans: "Gagal memproses: " + e.message, status: "error" });
+      updatePage({ orig: "—", trans: "Error: " + e.message, status: "error" });
     }
   };
 
@@ -579,30 +523,21 @@ x,y = top-left corner as % of image width/height. w,h = width/height %. If no te
     const files = Array.from(e.target.files);
     if (!files.length) return;
     setProcessing(true);
-    const isComic = mode === "komik";
+    
     const raw = await Promise.all(files.map((file, i) => new Promise(res => {
       const reader = new FileReader();
-      reader.onload = ev => res({ id: i, img: ev.target.result, b64: ev.target.result.split(",")[1], mimeType: file.type });
+      reader.onload = ev => res({ id: i, img: ev.target.result });
       reader.readAsDataURL(file);
     })));
+    
     setPages(raw.map(p => ({ ...p, orig: "", trans: "", bubbles: null, status: "pending" })));
-    await Promise.all(raw.map(p => processPage(p.id, p.b64, p.mimeType, tgtLang, isComic)));
+    
+    // Process sequentially to avoid heavy memory usage
+    for (const p of raw) {
+      await processPage(p.id, p.img, tgtLang);
+    }
+    
     setProcessing(false);
-    e.target.value = "";
-  };
-
-  const handleAddMore = async (e) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
-    const isComic = mode === "komik";
-    const startId = pages.length;
-    const raw = await Promise.all(files.map((file, i) => new Promise(res => {
-      const reader = new FileReader();
-      reader.onload = ev => res({ id: startId + i, img: ev.target.result, b64: ev.target.result.split(",")[1], mimeType: file.type });
-      reader.readAsDataURL(file);
-    })));
-    setPages(prev => [...prev, ...raw.map(p => ({ ...p, orig: "", trans: "", bubbles: null, status: "pending" }))]);
-    await Promise.all(raw.map(p => processPage(p.id, p.b64, p.mimeType, tgtLang, isComic)));
     e.target.value = "";
   };
 
@@ -641,7 +576,7 @@ x,y = top-left corner as % of image width/height. w,h = width/height %. If no te
           <div className="doc-upload-icon">{m.icon}</div>
           <div className="doc-upload-title">Upload {m.label}</div>
           <div className="doc-upload-hint">{m.hint}</div>
-          <div className="doc-upload-sub"><Zap size={11}/> Semua halaman diproses paralel — TURBO</div>
+          <div className="doc-upload-sub"><Zap size={11}/> Gratis, diproses di perangkat Anda</div>
         </div>
       )}
 
@@ -659,7 +594,7 @@ x,y = top-left corner as % of image width/height. w,h = width/height %. If no te
                   <div className="doc-page-num">{mode === "surat" ? "📄 Dokumen" : `Halaman ${i + 1}`}</div>
                   <div className={`doc-page-status ${p.status}`}>
                     {p.status === "pending" && "⏳ Antri..."}
-                    {p.status === "ocr" && "🔍 Membaca teks (AI)..."}
+                    {p.status === "ocr" && "🔍 Membaca (Tesseract)..."}
                     {p.status === "translating" && "⚡ Menerjemahkan..."}
                     {p.status === "done" && "✅ Selesai"}
                     {p.status === "error" && "❌ Gagal"}
@@ -670,7 +605,7 @@ x,y = top-left corner as % of image width/height. w,h = width/height %. If no te
               {mode === "komik" && p.status === "done" && (
                 p.bubbles && p.bubbles.length > 0
                   ? <ComicCanvas imgSrc={p.img} bubbles={p.bubbles} pageNum={i + 1}/>
-                  : <div className="comic-no-bubble">Tidak ada teks terdeteksi di halaman ini</div>
+                  : <div className="comic-no-bubble">Tidak ada teks terdeteksi</div>
               )}
 
               {/* BOOK / LETTER MODE */}
@@ -691,13 +626,6 @@ x,y = top-left corner as % of image width/height. w,h = width/height %. If no te
             </div>
           ))}
           <div ref={resultsEnd}/>
-          {!processing && m.multi && (
-            <button className="doc-add-btn" onClick={() => {
-              const inp = document.createElement("input");
-              inp.type = "file"; inp.accept = "image/*"; inp.multiple = true;
-              inp.onchange = handleAddMore; inp.click();
-            }}>+ Tambah Halaman</button>
-          )}
         </div>
       )}
 
@@ -706,10 +634,10 @@ x,y = top-left corner as % of image width/height. w,h = width/height %. If no te
   );
 }
 
-// ── VideoTab – ultra-fast interim translation ──
+// ── VideoTab ──
 function VideoTab() {
-  const [srcLang, setSrcLang] = useState(LANGS[1]); // English
-  const [tgtLang, setTgtLang] = useState(LANGS[0]); // Indonesia
+  const [srcLang, setSrcLang] = useState(LANGS[1]);
+  const [tgtLang, setTgtLang] = useState(LANGS[0]);
   const [isLive, setIsLive]   = useState(false);
   const [subtitle, setSubtitle] = useState("");
   const [latency, setLatency]   = useState(null);
@@ -751,7 +679,7 @@ function VideoTab() {
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
       setCamErr(""); return true;
-    } catch { setCamErr("Kamera tidak bisa dibuka — terjemahan audio tetap jalan."); return false; }
+    } catch { setCamErr("Kamera tidak bisa dibuka."); return false; }
   };
 
   const stopCamera = () => {
@@ -762,7 +690,7 @@ function VideoTab() {
 
   const startSpeech = (src, tgt) => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { setCamErr("Butuh Chrome atau Edge."); return; }
+    if (!SR) { setCamErr("Butuh Chrome/Edge."); return; }
     const r = new SR();
     srRef.current = r;
     r.continuous = true;
@@ -796,8 +724,8 @@ function VideoTab() {
     };
 
     r.onerror = ev => {
-      if (ev.error === "not-allowed") setCamErr("Izin mikrofon ditolak di browser.");
-      else if (ev.error === "network") setCamErr("Tidak ada koneksi internet.");
+      if (ev.error === "not-allowed") setCamErr("Izin mikrofon ditolak.");
+      else if (ev.error === "network") setCamErr("Tidak ada koneksi.");
     };
     r.onend = () => { if (isLiveRef.current) { try { r.start(); } catch {} } };
     try { r.start(); } catch (e) { setCamErr("Gagal start mikrofon: " + e.message); }
@@ -833,10 +761,9 @@ function VideoTab() {
         : <div className="vfull-placeholder">
             <Video size={52} style={{opacity:.12}}/>
             <p style={{fontWeight:700,fontSize:17,color:"#fca5a5"}}>Tekan Mulai</p>
-            <p style={{fontSize:12,opacity:.4,lineHeight:1.6}}>Video fullscreen · subtitle langsung muncul saat ngomong</p>
+            <p style={{fontSize:12,opacity:.4,lineHeight:1.6}}>Video fullscreen · subtitle langsung muncul</p>
           </div>
       }
-
       {isLive && (
         <div className="vfull-top">
           <div className="src-badge"><Zap size={9}/>{srcLang.flag} {srcLang.name} → {tgtLang.flag} {tgtLang.name}</div>
@@ -846,16 +773,13 @@ function VideoTab() {
           </div>
         </div>
       )}
-
       {isLive && subtitle && (
         <div className="vfull-sub">
           <span className="vfull-sub-text">{subtitle}</span>
         </div>
       )}
-
       <div className="vfull-bottom">
         {camErr && <div className="err" style={{margin:"0 0 6px"}}><span>{camErr}</span><X size={12} onClick={()=>setCamErr("")} style={{flexShrink:0}}/></div>}
-
         {!isLive && (
           <div className="vlang-row-h">
             <select value={srcLang.code} onChange={e=>setSrcLang(LANGS.find(l=>l.code===e.target.value))}>
@@ -867,11 +791,9 @@ function VideoTab() {
             </select>
           </div>
         )}
-
         <button className={`vstart-btn ${isLive?"live":"idle"}`} onClick={toggle}>
-          {isLive ? <><VideoOff size={18}/>⏹ Hentikan</> : <><Video size={18}/>▶ Mulai Terjemahan Video</>}
+          {isLive ? <><VideoOff size={18}/>⏹ Hentikan</> : <><Video size={18}/>▶ Mulai</>}
         </button>
-        {!isLive && <div className="speed-info"><Zap size={11}/>Subtitle langsung muncul saat ngomong · real-time</div>}
       </div>
     </div>
   );
@@ -897,49 +819,13 @@ export default function App() {
   const fileRef = useRef(null);
   const feedEnd = useRef(null);
 
-  const claudeOCR = useCallback(async (dataUrl, onProgress, mimeType = "image/jpeg") => {
-    onProgress?.("🤖 Membaca semua teks dengan Claude AI...");
-    const b64 = dataUrl.split(",")[1];
-    
-    if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === "ISI_DENGAN_API_KEY_ANDA") {
-        throw new Error("API Key tidak valid.");
-    }
-
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { 
-          "Content-Type": "application/json",
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: "claude-3-sonnet-20240229",
-        max_tokens: 1500,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: mimeType, data: b64 } },
-            { type: "text", text: `Read and extract EVERY SINGLE word of text visible in this image, regardless of text color, background color, font size, or style. Include white text, colored text, small text, overlapping text — all of it. Preserve line breaks and reading order. Reply ONLY with the raw extracted text. If there is truly no text at all, reply: NONE` }
-          ]
-        }]
-      })
-    });
-    if (!res.ok) throw new Error("Claude API " + res.status);
-    const data = await res.json();
-    const text = (data.content?.[0]?.text || "").trim();
-    if (!text || text === "NONE") throw new Error("Tidak ada teks terdeteksi");
-    return text;
-  }, []);
-
   useEffect(()=>{ const on=()=>setIsOnline(true),off=()=>setIsOnline(false); window.addEventListener("online",on); window.addEventListener("offline",off); return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);}; },[]);
-  
   useEffect(()=>{
     warmTranslateCache([
       ["Halo","id","en"],["Hello","en","id"],
       ["Terima kasih","id","en"],["Thank you","en","id"],
     ]);
   },[]);
-  
   useEffect(()=>{ feedEnd.current?.scrollIntoView({behavior:"smooth"}); },[messages,translating,openLearn]);
 
   const showErr=m=>{setError(m);setTimeout(()=>setError(""),4000);};
@@ -966,23 +852,30 @@ export default function App() {
     r.start();
   };
 
-  const handlePhoto = e => {
+  // Handle Photo with Tesseract (Free)
+  const handlePhoto = async e => {
     const file = e.target.files[0]; if (!file) return;
-    const mimeType = file.type || "image/jpeg";
     const reader = new FileReader();
     reader.onload = async ev => {
       const url = ev.target.result;
       setPhotoImg(url); setPhotoProc(true); setPhotoResult(null);
       try {
-        setPhotoResult({ original: "🤖 Claude sedang membaca gambar...", translated: "" });
-        const onProgress = msg => setPhotoResult(p => ({ ...p, original: msg }));
-        const rawText = await claudeOCR(url, onProgress, mimeType);
-        if (!rawText || rawText.length < 2) {
+        setPhotoResult({ original: "🔍 Membaca dengan Tesseract (Gratis)...", translated: "" });
+        
+        if (!window.Tesseract) {
+             await loadTesseract();
+        }
+        
+        const worker = await window.Tesseract.createWorker('eng+ind', 1);
+        const { data: { text } } = await worker.recognize(url);
+        await worker.terminate();
+
+        if (!text || text.trim().length < 2) {
           setPhotoResult({ original: "Tidak ada teks terdeteksi.", translated: "No text found." }); return;
         }
-        setPhotoResult({ original: rawText, translated: "⏳ Menerjemahkan..." });
-        const translated = await fastTranslate(rawText, "auto", photoTgt.code);
-        setPhotoResult({ original: rawText, translated: translated || rawText });
+        setPhotoResult({ original: text, translated: "⏳ Menerjemahkan..." });
+        const translated = await fastTranslate(text, "auto", photoTgt.code);
+        setPhotoResult({ original: text, translated: translated || text });
       } catch (err) {
         setPhotoResult({ original: "⚠ " + (err?.message || String(err)), translated: "Gagal. Coba lagi." });
       } finally { setPhotoProc(false); }
@@ -999,8 +892,8 @@ export default function App() {
       <div className="app">
         <div className="header">
           <div className="logo">
-            <div className="logo-icon">TL</div>
-            <span className="logo-name">translaf one</span>
+             <div className="logo-icon">TL</div>
+             <span className="logo-name">translaf one</span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             {tab==="talk"&&messages.length>0&&<button className="clrbtn" onClick={()=>{setMessages([]);setOpenLearn(null);}}><Trash2 size={15}/></button>}
@@ -1017,7 +910,7 @@ export default function App() {
         {tab==="talk"&&<>
           <div className="bar-a"><select value={langA.code} onChange={e=>setLangA(LANGS.find(l=>l.code===e.target.value))}>{LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}</select><span className="bar-lbl">← Orang lain</span></div>
           <div className="feed">
-            {!messages.length&&!translating&&<div className="empty"><Volume2 size={28} style={{opacity:.3}}/><p>Tekan mikrofon untuk mulai bicara</p><p style={{fontSize:11,opacity:.6}}>Tap <strong style={{color:"#fca5a5"}}>Pelajari Ucapan</strong> setelah terjemahan muncul</p></div>}
+            {!messages.length&&!translating&&<div className="empty"><Volume2 size={28} style={{opacity:.3}}/><p>Tekan mikrofon untuk mulai bicara</p><p style={{fontSize:11,opacity:.6}}>Tap <strong style={{color:"#fca5a5"}}>Pelajari Ucapan</strong> untuk praktik gratis</p></div>}
             {messages.map(m=>(
               <div key={m.id} className={`bwrap ${m.side}`}>
                 <div className={`bubble ${m.side}`}><div className="b-orig">{m.src.flag} {m.orig}</div><div className="bdiv"/><div className="b-trans">{m.tgt.flag} {m.trans}</div></div>
@@ -1038,7 +931,6 @@ export default function App() {
         </>}
 
         {tab==="video"&&<VideoTab/>}
-
         {tab==="doc"&&<DocumentTab/>}
 
         {showPhoto&&<div className="pov">
@@ -1046,7 +938,7 @@ export default function App() {
           <div className="lrow"><span>Terjemahkan ke:</span><select value={photoTgt.code} onChange={e=>setPhotoTgt(LANGS.find(l=>l.code===e.target.value))} style={{flex:1}}>{LANGS.map(l=><option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}</select></div>
           {!photoImg?<div className="upz" onClick={()=>fileRef.current?.click()}><ImageIcon size={28}/><span style={{fontSize:14}}>Tap untuk pilih gambar</span></div>
           :<div><img src={photoImg} className="prev" alt="preview"/>
-            {photoProc&&<div className="proc">Membaca teks dengan AI...</div>}
+            {photoProc&&<div className="proc">Membaca teks (Gratis)...</div>}
             {photoResult&&<div className="rbox"><div className="rlbl">Teks asli:</div><div className="rorig">{photoResult.original}</div><div className="rdivp"><div className="rlbl">Terjemahan ({photoTgt.flag} {photoTgt.name}):</div><div className="rtrans">{photoResult.translated}</div></div><button className="spkbtn" onClick={()=>speak(photoResult.translated,photoTgt.speech)}><Volume2 size={12}/>Putar audio</button></div>}
             <button className="rstbtn" onClick={()=>{setPhotoImg(null);setPhotoResult(null);}}><RotateCcw size={12}/>Pilih gambar lain</button>
           </div>}
